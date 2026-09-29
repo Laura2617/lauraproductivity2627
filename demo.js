@@ -101,7 +101,7 @@ window.DemoAPI = (function () {
   function meta() {
     return { ok: true, categorias: ['Gimnasio', 'Suscripciones', 'Comida fuera y cafés', 'Ocio y planes', 'Ropa y compras', 'Cuidado personal', 'Transporte', 'Estudios y certificaciones', 'Regalos', 'Viajes y escapadas', 'Salud', 'Deporte extra (pádel)', 'Otros e imprevistos'],
       ingresos: ['Trabajos puntuales', 'Regalos / paga familiar', 'Otros ingresos'], cuentas: ['Efectivo', 'Cuenta gastos', 'Cuenta ahorro', 'Hucha Canadá'],
-      recientes: moves.slice().reverse(), saldos: { 'Efectivo': 995.5, 'Cuenta gastos': 1016.1, 'Cuenta ahorro': 0, 'Hucha Canadá': 40, total: 2051.6, colchon: 17 } };
+      recientes: moves.slice().reverse(), calendario: { on: true, last: new Date(Date.now() - 12 * 60000).toISOString(), nombre: 'Laura 26/27', error: '' }, saldos: { 'Efectivo': 995.5, 'Cuenta gastos': 1016.1, 'Cuenta ahorro': 0, 'Hucha Canadá': 40, total: 2051.6, colchon: 17 } };
   }
   function plan(rutina, fecha) {
     const r = rutina || rutinaHoy || 'Empuje';
@@ -135,6 +135,7 @@ window.DemoAPI = (function () {
       if (action === 'gymPlan') return res(plan(p.rutina, p.fecha));
       if (action === 'logSet') { const row = nextRow++; logged.push({ row, ejercicio: p.ejercicio, serie: p.serie, kg: p.kg, reps: p.reps }); return res({ ok: true, row, record: p.kg != null && p.serie === 1 && /banca|Sentadilla|muerto/.test(p.ejercicio) }); }
       if (action === 'deleteSet') { const k = logged.findIndex((l) => l.row === p.row); if (k >= 0) logged.splice(k, 1); return res({ ok: true }); }
+      if (action === 'calSync') return res({ ok: true, creados: 0, borrados: 0, eventos: 42, pendientes: 0, calendario: { on: true, last: new Date().toISOString(), nombre: 'Laura 26/27', error: '' } });
       if (action === 'estudios') return res(est());
       if (action === 'addTask') { if (!String(p.tarea || '').trim()) return res({ ok: false, error: 'Escribe la tarea' }); const t = { row: tRow++, asignatura: p.asignatura || '', tarea: p.tarea, tipo: p.tipo, fecha: p.fecha || '', prioridad: p.prioridad, hecha: false, notas: p.notas || '' }; tareas.push(t); return res({ ok: true, row: t.row, tareas: tareas.slice() }); }
       if (action === 'updateTask') { const t = tareas.find((x) => x.row === Number(p.row)); if (!t) return res({ ok: false, error: 'Esa tarea ya no existe' }); Object.assign(t, p.fields); return res({ ok: true, tareas: tareas.slice() }); }

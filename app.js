@@ -3,7 +3,7 @@
   'use strict';
   const CFG = window.CONFIG || {};
   const DEMO = !CFG.API_URL;
-  const APP_VERSION = '1.1 · fase 2 (Estudios y tareas)';
+  const APP_VERSION = '1.2 · fase 2 (Estudios, tareas y calendario)';
   const LS = { pin: 'l2627.pin', sound: 'l2627.sound', theme: 'l2627.theme' };
   const $ = (s, el) => (el || document).querySelector(s);
   const view = $('#view'), tabs = $('#tabs'), sheet = $('#sheet'), toastEl = $('#toast'), timerEl = $('#timer');
@@ -552,7 +552,7 @@
   function renderMas() {
     const m = S.meta || { recientes: [], saldos: {} };
     const s = m.saldos || {};
-    const soon = [['📅', 'Calendario con avisos', 'fase 2 · lo siguiente'], ['💶', 'Dinero', 'fase 2'], ['📈', 'Progreso y calendario de hábitos', 'fase 2'],
+    const soon = [['💶', 'Dinero', 'fase 2 · lo siguiente'], ['📈', 'Progreso y calendario de hábitos', 'fase 2'],
       ['🍳', 'Recetas y menú', 'fase 3'], ['📚', 'Biblioteca', 'fase 3'], ['🛍️', 'Me gustaría comprar', 'fase 3'], ['🔁', 'Revisión semanal + resumen para Claude', 'fase 3']];
     let vis = S.vision; if (!vis) { try { vis = JSON.parse(store('get', 'l2627.vision') || 'null'); } catch (e) { vis = null; } }
     const vImg = vis && (vis.cards || []).map((c) => c.images && c.images[0]).find(Boolean);
@@ -568,6 +568,7 @@
           <b style="color:${r.tipo === 'Ingreso' ? 'var(--green)' : 'inherit'}">${r.tipo === 'Ingreso' ? '+' : r.tipo === 'Gasto' ? '−' : ''}${eur(r.importe)}</b>
           <button type="button" class="icon-btn" data-m="del" data-row="${r.row}" aria-label="Borrar ${esc(r.concepto)}">${icon('trash')}</button></div>`).join('') || '<p class="small muted">Todavía no hay movimientos.</p>'}</div></section>
       </div><div>
+      ${calCard(m.calendario)}
       <section class="card"><div class="kicker" style="margin-bottom:6px">Próximamente</div><div class="list">${soon.map(([e, t, f]) => `<div class="li"><span style="font-size:20px">${e}</span><span style="flex:1">${t}</span><span class="soon">${f}</span></div>`).join('')}</div></section>
       <section class="card"><div class="kicker" style="margin-bottom:6px">Ajustes</div><div class="list">
         <div class="li">${icon('sound')}<span style="flex:1">Pitido del temporizador</span><button type="button" class="toggle ${S.soundLocal ? 'on' : ''}" data-m="sound" aria-pressed="${S.soundLocal}" aria-label="Pitido del temporizador"></button></div>
@@ -582,6 +583,12 @@
     if (b.dataset.act === 'reload-mas') return loadMas();
     const m = b.dataset.m;
     if (m === 'vision') return go('vision');
+    if (m === 'calsync') {
+      S.calBusy = true; renderMas();
+      try { const r = await api('calSync'); if (S.meta) S.meta.calendario = r.calendario; toast('Calendario al día ✓ · ' + r.eventos + ' eventos' + (r.pendientes ? ' (faltan ' + r.pendientes + ', siguen en la próxima hora)' : '')); }
+      catch (err) { toast(err.message, true); }
+      S.calBusy = false; if (S.tab === 'mas') renderMas(); return;
+    }
     if (m === 'sound') { S.soundLocal = !S.soundLocal; store('set', LS.sound, S.soundLocal ? 'on' : 'off'); if (S.soundLocal) { unlockAudio(); beep(); } return renderMas(); }
     if (m === 'logout') { if (confirm('¿Cerrar sesión en este dispositivo? Tendrás que volver a poner el PIN.')) logout(); return; }
     if (m === 'del') {
@@ -589,6 +596,24 @@
       try { S.meta = await api('deleteMove', { row: Number(b.dataset.row) }); renderMas(); toast('Movimiento borrado'); } catch (err) { toast(err.message, true); }
     }
   });
+  function ago(isoStr) {
+    if (!isoStr) return 'nunca';
+    const min = Math.round((Date.now() - new Date(isoStr).getTime()) / 60000);
+    if (min < 1) return 'ahora mismo'; if (min < 60) return 'hace ' + min + ' min';
+    const h = Math.round(min / 60); if (h < 24) return 'hace ' + h + ' h';
+    return 'hace ' + Math.round(h / 24) + ' días';
+  }
+  function calCard(c) {
+    if (!c) return '';
+    if (!c.on) return `<section class="card"><div class="kicker" style="margin-bottom:8px">Calendario con avisos</div>
+      <p class="small" style="margin:0 0 6px"><b>Aún no está conectado.</b> Solo hay que hacerlo una vez:</p>
+      <p class="small muted" style="margin:0">En Apps Script, elige <b>configurarCalendario</b> en el desplegable de arriba y pulsa <b>▶ Ejecutar</b>. Acepta el permiso de Google Calendar.</p></section>`;
+    return `<section class="card"><div class="row between" style="margin-bottom:8px"><span class="kicker">Calendario con avisos</span><span class="okpill">Conectado</span></div>
+      <p class="small" style="margin:0">Tus clases, gym, tareas y exámenes están en el calendario <b>«${esc(c.nombre)}»</b> de Google Calendar.</p>
+      <p class="small muted" style="margin:6px 0 10px">Última sincronización: ${esc(ago(c.last))}. Las tareas se pasan al momento; lo que cambies en el Sheet, cada hora.</p>
+      ${c.error ? `<div class="demo-banner" style="margin-bottom:10px">Último error: ${esc(c.error)}</div>` : ''}
+      <button type="button" class="btn ghost slim" data-m="calsync" ${S.calBusy ? 'disabled' : ''}>${S.calBusy ? 'Sincronizando… (puede tardar un minuto)' : 'Sincronizar ahora'}</button></section>`;
+  }
   function renderSoon(title, text) {
     view.innerHTML = `<header class="head"><h1>${esc(title)}</h1></header><section class="card"><span class="soon">fase 3</span><p style="margin:10px 0 0">${esc(text)}</p></section>`;
   }

@@ -46,6 +46,27 @@ window.DemoAPI = (function () {
   const wd = new Date().getDay();
   const rutinaHoy = Object.keys(DAYOF).find((k) => DAYOF[k] === DIAS[wd]) || '';
 
+  const addD = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return iso(d); };
+  let tRow = 6;
+  const tareas = [
+    ['Tecnología Big Data II', 'Entrega práctica 1: pipeline con Spark', 'Entrega', addD(1), 'Alta'],
+    ['Visualización de datos & reporting empresarial', 'Leer capítulo 2 de Storytelling with Data', 'Lectura', addD(0), 'Media'],
+    ['Cert. DP-900', 'Módulo 3: bases de datos relacionales en Azure', 'Estudio', addD(4), 'Media'],
+    ['Marketing y estrategia de ventas', 'Caso práctico en grupo', 'Trabajo en grupo', addD(9), 'Media'],
+    ['Regression and modeling with SAS', 'Instalar SAS OnDemand y probar el primer script', 'Ejercicios', addD(-1), 'Alta'],
+    ['Analítica de datos II: modelización avanzada y ML', 'Repasar regresión logística', 'Estudio', '', 'Baja'],
+    ['Data analytics with Google', 'Cuestionario tema 1', 'Entrega', addD(-3), 'Media', true]
+  ].map(([asignatura, tarea, tipo, fecha, prioridad, hecha]) => ({ row: tRow++, asignatura, tarea, tipo, fecha, prioridad, hecha: !!hecha, notas: '' }));
+  const asigs = [['Regression and modeling with SAS', 3], ['Visualización de datos & reporting empresarial', 4.5], ['Data analytics with Google', 6], ['Sistemas de apoyo a la decisión (inglés)', 3], ['Emprendimiento tecnológico', 3], ['Tecnología Big Data II', 3], ['Marketing y estrategia de ventas', 6], ['Analítica de datos II: modelización avanzada y ML', 6], ['La cuestión de Dios', 5]]
+    .map(([nombre, creditos], k) => ({ row: 18 + k, nombre, cuatri: '1º cuatri', creditos, examen: k === 5 ? addD(12) : k === 2 ? addD(40) : '', objetivo: 9, final: null, estado: 'Cursando', notas: '' }));
+  const certs = [['Microsoft DP-900 · Azure Data Fundamentals', 'DP-900', 12, 3, '2026-11-15', 'En curso', 13.5], ['Claude (Anthropic) · certificación', 'Claude', null, null, '2026-12-20', 'Pendiente', 0], ['SAS · Regression & Modeling', 'SAS', null, null, '2027-03-31', 'Pendiente', 0]]
+    .map(([nombre, codigo, total, hechos, objetivo, estado, horas], k) => ({ row: 7 + k, nombre, codigo, total, hechos, progreso: null, objetivo, examen: '', estado, horas, notas: k === 0 ? 'Primero: es la más corta.' : '' }));
+  const mk = (r0, list) => list.map(([tarea, fecha], k) => ({ row: r0 + k, tarea, fecha, estado: 'Pendiente', notas: '' }));
+  const planP = mk(35, [['Actualizar CV (1 página, con proyectos y certificaciones)', '2026-10-31'], ['LinkedIn completo: foto, titular, extracto y certificaciones', '2026-11-15'], ['Lista de 15 empresas donde me gustaría hacer prácticas', '2026-12-15'], ['Enviar al menos 10 candidaturas', '2027-03-15']]);
+  const cvL = mk(48, [['Certificación DP-900', '2026-11-15'], ['CV de 1 página actualizado', '2026-10-31'], ['Portfolio: 3 proyectos en GitHub', '2027-02-28']]);
+  const soonT = (f) => tareas.filter((t) => !t.hecha && t.fecha && t.fecha <= addD(1)).sort((a, b) => (a.fecha < b.fecha ? -1 : 1));
+  const est = () => ({ ok: true, hoy: today, certs, asignaturas: asigs, plan: planP, cv: cvL, media: null, practicas: '2027-06-01', tareas: tareas.slice(), tipos: [] });
+
   function habits() {
     return defs.map((d, k) => {
       const i = k + 1, v = vals[i];
@@ -74,7 +95,7 @@ window.DemoAPI = (function () {
       curso, despertar: '07:04', wakeTarget: '07:00', nota: '', sinGastar: '',
       agenda: [{ inicio: '08:00', fin: '10:00', actividad: 'Clase', tipo: 'Clase' }, { inicio: '16:00', fin: '18:30', actividad: 'Estudio', tipo: 'Estudio' }, { inicio: '19:30', fin: '20:30', actividad: 'Gym · ' + (rutinaHoy || 'descanso'), tipo: 'Gym' }],
       gym: { rutina: rutinaHoy, ejercicios: rutinaHoy ? 5 : 0, semana: 1 + (logged.length ? 1 : 0), meta: 4 },
-      money: money(), sonido: true
+      money: money(), sonido: true, tareas: soonT()
     };
   }
   function meta() {
@@ -114,6 +135,16 @@ window.DemoAPI = (function () {
       if (action === 'gymPlan') return res(plan(p.rutina, p.fecha));
       if (action === 'logSet') { const row = nextRow++; logged.push({ row, ejercicio: p.ejercicio, serie: p.serie, kg: p.kg, reps: p.reps }); return res({ ok: true, row, record: p.kg != null && p.serie === 1 && /banca|Sentadilla|muerto/.test(p.ejercicio) }); }
       if (action === 'deleteSet') { const k = logged.findIndex((l) => l.row === p.row); if (k >= 0) logged.splice(k, 1); return res({ ok: true }); }
+      if (action === 'estudios') return res(est());
+      if (action === 'addTask') { if (!String(p.tarea || '').trim()) return res({ ok: false, error: 'Escribe la tarea' }); const t = { row: tRow++, asignatura: p.asignatura || '', tarea: p.tarea, tipo: p.tipo, fecha: p.fecha || '', prioridad: p.prioridad, hecha: false, notas: p.notas || '' }; tareas.push(t); return res({ ok: true, row: t.row, tareas: tareas.slice() }); }
+      if (action === 'updateTask') { const t = tareas.find((x) => x.row === Number(p.row)); if (!t) return res({ ok: false, error: 'Esa tarea ya no existe' }); Object.assign(t, p.fields); return res({ ok: true, tareas: tareas.slice() }); }
+      if (action === 'deleteTask') { const k = tareas.findIndex((x) => x.row === Number(p.row)); if (k >= 0) tareas.splice(k, 1); return res({ ok: true, tareas: tareas.slice() }); }
+      if (action === 'updateStudy') {
+        const list = { cert: certs, asig: asigs, plan: planP, cv: cvL }[p.kind]; const it = list && list.find((x) => x.row === Number(p.row));
+        if (!it) return res({ ok: false, error: 'Fila no válida' });
+        Object.keys(p.fields).forEach((k) => { const v = p.fields[k]; it[k] = ['total', 'hechos', 'objetivo', 'final'].includes(k) ? (v === '' || v == null ? null : Number(String(v).replace(',', '.'))) : v; });
+        return res(est());
+      }
       res({ ok: false, error: 'Acción no disponible en la demo' });
     }, 250));
   };

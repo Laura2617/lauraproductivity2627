@@ -1,14 +1,15 @@
-/* Laura 26/27 · fase 1 (Hoy · Añadir · Gym · Más) */
+/* Laura 26/27 · fase 2 (Hoy · Estudios · Añadir · Gym · Más · Visión) */
 (function () {
   'use strict';
   const CFG = window.CONFIG || {};
   const DEMO = !CFG.API_URL;
+  const APP_VERSION = '1.1 · fase 2 (Estudios y tareas)';
   const LS = { pin: 'l2627.pin', sound: 'l2627.sound', theme: 'l2627.theme' };
   const $ = (s, el) => (el || document).querySelector(s);
   const view = $('#view'), tabs = $('#tabs'), sheet = $('#sheet'), toastEl = $('#toast'), timerEl = $('#timer');
 
   const S = { pin: store('get', LS.pin), tab: 'hoy', fecha: null, today: null, meta: null, gym: null, gymMode: '60', gymRutina: null,
-    pending: 0, seq: 0, add: null, timer: null, soundLocal: store('get', LS.sound) !== 'off' };
+    pending: 0, seq: 0, add: null, est: null, estFilter: 'Todas', estOpen: {}, task: null, sedit: null, timer: null, soundLocal: store('get', LS.sound) !== 'off' };
 
   // ─── Utilidades ──────────────────────────────────────────────
   function store(op, k, v) { try { if (op === 'get') return localStorage.getItem(k); if (op === 'set') localStorage.setItem(k, v); if (op === 'del') localStorage.removeItem(k); } catch (e) { return null; } return null; }
@@ -30,7 +31,7 @@
     mas: 'M4 6h16 M4 12h16 M4 18h16', vision: 'M12 2l3 6 6 1-4.5 4.5 1 6.5-5.5-3-5.5 3 1-6.5L3 9l6-1z', close: 'M6 6l12 12 M18 6L6 18', check: 'M5 12l5 5 9-10', flame: 'M12 22c4 0 7-3 7-7 0-4-3-6-4-9-1 2-2 3-4 3 0-2 0-4-1-6-3 3-5 7-5 12 0 4 3 7 7 7z',
     warn: 'M12 3l10 18H2z M12 10v5 M12 18h.01', trophy: 'M8 4h8v5a4 4 0 0 1-8 0z M8 6H4v1a4 4 0 0 0 4 4 M16 6h4v1a4 4 0 0 1-4 4 M12 13v4 M8 20h8',
     chev: 'M9 6l6 6-6 6', trash: 'M4 7h16 M10 11v6 M14 11v6 M6 7l1 13h10l1-13 M9 7V4h6v3', clock: 'M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z M12 7v5l3 2',
-    sheet: 'M4 4h16v16H4z M4 10h16 M10 4v16', logout: 'M15 4h4v16h-4 M10 8l-4 4 4 4 M6 12h10', sound: 'M4 9v6h4l5 4V5L8 9z M17 9a4 4 0 0 1 0 6'
+    estudios: 'M2 9l10-5 10 5-10 5z M6 11v5c3 2.5 9 2.5 12 0v-5 M22 9v6', sheet: 'M4 4h16v16H4z M4 10h16 M10 4v16', logout: 'M15 4h4v16h-4 M10 8l-4 4 4 4 M6 12h10', sound: 'M4 9v6h4l5 4V5L8 9z M17 9a4 4 0 0 1 0 6'
   };
   const icon = (k, cls) => `<svg class="i ${cls || ''}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICON[k]}"/></svg>`;
 
@@ -102,10 +103,11 @@
   }
 
   function renderTabs() {
-    const t = [['hoy', 'Hoy'], ['gym', 'Gym'], ['add', ''], ['vision', 'Visión'], ['mas', 'Más']];
+    const t = [['hoy', 'Hoy'], ['estudios', 'Estudios'], ['add', ''], ['gym', 'Gym'], ['mas', 'Más']];
+    const cur = S.tab === 'vision' ? 'mas' : S.tab;
     tabs.innerHTML = t.map(([k, l]) => k === 'add'
       ? `<button type="button" class="add" data-tab="add" aria-label="Añadir">${icon('plus')}</button>`
-      : `<button type="button" data-tab="${k}" class="${S.tab === k ? 'on' : ''}">${icon(k)}<span>${l}</span></button>`).join('');
+      : `<button type="button" data-tab="${k}" class="${cur === k ? 'on' : ''}">${icon(k)}<span>${l}</span></button>`).join('');
   }
   tabs.addEventListener('click', (e) => {
     const b = e.target.closest('[data-tab]'); if (!b) return;
@@ -119,6 +121,7 @@
     else if (tab === 'gym') loadGym();
     else if (tab === 'mas') loadMas();
     else if (tab === 'vision') loadVision();
+    else if (tab === 'estudios') { if (S.est) renderEstudios(); loadEstudios(true); }
     else if (tab === 'recetas') renderSoon('Recetas', 'Tus 20 recetas, el menú semanal y la lista de la compra para WhatsApp llegan en la fase 3. Mientras, las tienes en la hoja "Recetas" de tu Google Sheets.');
   }
   function skeleton() { view.innerHTML = '<div class="skeleton" style="height:60px"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton" style="height:220px"></div>'; }
@@ -178,7 +181,8 @@
       <section style="display:flex;flex-direction:column;gap:10px">
         <div class="section-title"><h2>Núcleo diario</h2><span class="muted small">toca para marcar</span></div>
         ${checks.map((h) => habitRow(h, t)).join('')}
-      </section>`;
+      </section>
+      ${tasksCard(t)}`;
     const right = `
       <section style="display:flex;flex-direction:column;gap:10px">
         <div class="section-title"><h2>Tus números</h2><span class="muted small">Polar = automático</span></div>
@@ -483,7 +487,8 @@
     sheet.hidden = false; renderAdd();
     if (!S.meta) { try { S.meta = await api('meta'); renderAdd(); } catch (e) { toast(e.message, true); } }
   }
-  function closeAdd() { sheet.hidden = true; sheet.innerHTML = ''; S.add = null; }
+  function enterCls() { return sheet.children.length ? '' : ' enter'; }
+  function closeAdd() { sheet.hidden = true; sheet.innerHTML = ''; S.add = null; S.task = null; S.sedit = null; }
   function renderAdd() {
     const a = S.add; if (!a) return;
     const m = S.meta;
@@ -491,7 +496,7 @@
     const cuentas = m ? m.cuentas : ['Efectivo', 'Cuenta gastos', 'Cuenta ahorro', 'Hucha Canadá'];
     const shown = a.amount === '' ? '0' : a.amount;
     const ok = Number(a.amount.replace(',', '.')) > 0 && (a.tipo === 'Traspaso' ? a.cuenta !== a.destino : !!a.categoria);
-    sheet.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-label="Añadir">
+    sheet.innerHTML = `<div class="sheet${enterCls()}" role="dialog" aria-modal="true" aria-label="Añadir">
       <div class="grab"></div>
       <div class="row between"><h2 style="font-size:24px">Añadir</h2><button type="button" class="chip" data-a="close">Cerrar</button></div>
       <div class="seg">${['Gasto', 'Ingreso', 'Traspaso'].map((t) => `<button type="button" class="${a.tipo === t ? 'on' : ''}" data-a="tipo" data-v="${t}">${t}</button>`).join('')}</div>
@@ -547,9 +552,12 @@
   function renderMas() {
     const m = S.meta || { recientes: [], saldos: {} };
     const s = m.saldos || {};
-    const soon = [['💶', 'Dinero', 'fase 2'], ['📈', 'Progreso y calendario de hábitos', 'fase 2'], ['🎓', 'Estudios y tareas', 'fase 2'], ['📅', 'Calendario con avisos', 'fase 2'],
+    const soon = [['📅', 'Calendario con avisos', 'fase 2 · lo siguiente'], ['💶', 'Dinero', 'fase 2'], ['📈', 'Progreso y calendario de hábitos', 'fase 2'],
       ['🍳', 'Recetas y menú', 'fase 3'], ['📚', 'Biblioteca', 'fase 3'], ['🛍️', 'Me gustaría comprar', 'fase 3'], ['🔁', 'Revisión semanal + resumen para Claude', 'fase 3']];
+    let vis = S.vision; if (!vis) { try { vis = JSON.parse(store('get', 'l2627.vision') || 'null'); } catch (e) { vis = null; } }
+    const vImg = vis && (vis.cards || []).map((c) => c.images && c.images[0]).find(Boolean);
     view.innerHTML = `<header class="head"><h1>Más</h1></header>
+      <button type="button" class="vtile" data-m="vision"><span class="vimg" ${vImg ? `data-img="${esc(vImg)}"` : ''}></span><span class="vtile-txt"><span class="tiny bold">MI VISIÓN</span><span class="vfrase">Mis metas y mis fotos</span></span>${icon('chev')}</button>
       <div class="cols"><div>
       <section class="card"><div class="kicker" style="margin-bottom:10px">Tu dinero hoy</div>
         <div class="list">${['Efectivo', 'Cuenta gastos', 'Cuenta ahorro', 'Hucha Canadá'].map((k) => `<div class="li"><span style="flex:1">${k}</span><b>${eur(s[k])}</b></div>`).join('')}
@@ -565,13 +573,15 @@
         <div class="li">${icon('sound')}<span style="flex:1">Pitido del temporizador</span><button type="button" class="toggle ${S.soundLocal ? 'on' : ''}" data-m="sound" aria-pressed="${S.soundLocal}" aria-label="Pitido del temporizador"></button></div>
         ${CFG.SHEET_URL ? `<a class="li" href="${esc(CFG.SHEET_URL)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${icon('sheet')}<span style="flex:1">Abrir mi Google Sheets</span>${icon('chev')}</a>` : ''}
         <button type="button" class="li" data-m="logout" style="border:none;background:none;width:100%;text-align:left;padding-left:0">${icon('logout')}<span style="flex:1">Cerrar sesión en este dispositivo</span></button>
-        <div class="li small muted">Versión ${esc(CFG.VERSION || '')}${DEMO ? ' · modo demo' : ''}</div></div></section>
+        <div class="li small muted">Versión ${APP_VERSION}${DEMO ? ' · modo demo' : ''}</div></div></section>
       </div></div>`;
+    paintImages(view);
   }
   view.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-m],[data-act="reload-mas"]'); if (!b || S.tab !== 'mas') return;
     if (b.dataset.act === 'reload-mas') return loadMas();
     const m = b.dataset.m;
+    if (m === 'vision') return go('vision');
     if (m === 'sound') { S.soundLocal = !S.soundLocal; store('set', LS.sound, S.soundLocal ? 'on' : 'off'); if (S.soundLocal) { unlockAudio(); beep(); } return renderMas(); }
     if (m === 'logout') { if (confirm('¿Cerrar sesión en este dispositivo? Tendrás que volver a poner el PIN.')) logout(); return; }
     if (m === 'del') {
@@ -582,6 +592,310 @@
   function renderSoon(title, text) {
     view.innerHTML = `<header class="head"><h1>${esc(title)}</h1></header><section class="card"><span class="soon">fase 3</span><p style="margin:10px 0 0">${esc(text)}</p></section>`;
   }
+
+  // ─── ESTUDIOS Y TAREAS ───────────────────────────────────────
+  const SHORT = { 'Regression and modeling with SAS': 'Regresión SAS', 'Visualización de datos & reporting empresarial': 'Visualización', 'Data analytics with Google': 'Data Google',
+    'Sistemas de apoyo a la decisión (inglés)': 'Decision Support', 'Emprendimiento tecnológico': 'Emprendimiento', 'Tecnología Big Data II': 'Big Data II',
+    'Marketing y estrategia de ventas': 'Marketing', 'Analítica de datos II: modelización avanzada y ML': 'Analítica II', 'La cuestión de Dios': 'Cuestión de Dios' };
+  const shortSub = (n) => SHORT[n] || String(n || '').split(/[:(]/)[0].trim().slice(0, 22) || 'Sin asignatura';
+  const SUB_COLORS = ['#2456E6', '#6D4AFF', '#0F766E', '#C2410C', '#BE185D', '#0369A1', '#7C3AED', '#15803D', '#B45309', '#0891B2', '#DB2777', '#4F46E5', '#64748B', '#64748B'];
+  const PRIOS = ['Alta', 'Media', 'Baja'];
+  const TIPOS = ['Entrega', 'Examen', 'Lectura', 'Ejercicios', 'Estudio', 'Trabajo en grupo', 'Otro'];
+  function subjectList() {
+    const e = S.est;
+    const asig = e && e.asignaturas.length ? e.asignaturas.map((a) => a.nombre) : Object.keys(SHORT);
+    const certs = (e && e.certs.length ? e.certs.map((c) => c.codigo || c.nombre) : ['DP-900', 'Claude', 'SAS']).map((c) => 'Cert. ' + c);
+    return asig.concat(certs, ['Prácticas y CV', 'Otro']);
+  }
+  function subColor(n) {
+    const k = subjectList().indexOf(n);
+    if (k >= 0) return SUB_COLORS[k % SUB_COLORS.length];
+    let h = 0; for (const ch of String(n)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return SUB_COLORS[h % 12];
+  }
+  const dDiff = (a, b) => { const p = a.split('-').map(Number), q = b.split('-').map(Number); return Math.round((Date.UTC(q[0], q[1] - 1, q[2]) - Date.UTC(p[0], p[1] - 1, p[2])) / 864e5); };
+  const wdName = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('es-ES', { weekday: 'long' }); };
+  function dueInfo(f) {
+    if (!f) return { t: 'Sin fecha', c: '', g: 'Sin fecha' };
+    const n = dDiff(todayIso(), f);
+    if (n < 0) return { t: n === -1 ? 'Ayer' : 'Hace ' + (-n) + ' días', c: 'late', g: 'Atrasadas' };
+    if (n === 0) return { t: 'Hoy', c: 'late', g: 'Hoy' };
+    if (n === 1) return { t: 'Mañana', c: 'warn', g: 'Mañana' };
+    if (n < 7) return { t: cap(wdName(f)), c: 'warn', g: 'Esta semana' };
+    return { t: shortDate(f), c: '', g: 'Más adelante' };
+  }
+  const byDue = (a, b) => (a.fecha || '9999') < (b.fecha || '9999') ? -1 : (a.fecha || '9999') > (b.fecha || '9999') ? 1 : PRIOS.indexOf(a.prioridad) - PRIOS.indexOf(b.prioridad);
+  function soonFrom(list, fecha) { const lim = addDays(fecha, 1); return list.filter((t) => !t.hecha && t.fecha && t.fecha <= lim).sort(byDue).slice(0, 8); }
+
+  function taskRow(t) {
+    const d = dueInfo(t.fecha);
+    return `<div class="task ${t.hecha ? 'done' : ''}">
+      <button type="button" class="check sm ${t.hecha ? 'on' : ''}" data-e="tdone" data-row="${t.row}" aria-pressed="${t.hecha}" aria-label="${t.hecha ? 'Desmarcar' : 'Marcar como hecha'}: ${esc(t.tarea)}">${t.hecha ? icon('check') : ''}</button>
+      <button type="button" class="tbody" data-e="tedit" data-row="${t.row}" aria-label="Editar: ${esc(t.tarea)}">
+        <span class="tname">${t.prioridad === 'Alta' && !t.hecha ? '<i class="prio" title="Prioridad alta"></i>' : ''}${esc(t.tarea)}</span>
+        <span class="tsub"><i class="sdot" style="background:${subColor(t.asignatura)}"></i>${esc(shortSub(t.asignatura))}${t.tipo ? ' · ' + esc(t.tipo) : ''}</span>
+      </button>
+      <span class="due ${t.hecha ? '' : d.c}">${t.hecha ? 'Hecha' : esc(d.t)}</span>
+    </div>`;
+  }
+  function tasksCard(t) {
+    if (!Array.isArray(t.tareas)) return '';
+    return `<section class="card" style="display:flex;flex-direction:column;gap:10px">
+      <div class="row between"><span class="kicker">Tareas · hoy y mañana</span><button type="button" class="linkbtn" data-e="goest">Ver todas${icon('chev')}</button></div>
+      ${t.tareas.length ? `<div class="tlist">${t.tareas.map(taskRow).join('')}</div>` : '<p class="small muted" style="margin:0">Nada que entregar hoy ni mañana. 🎉</p>'}
+      <button type="button" class="btn ghost slim" data-e="tnew">+ Tarea</button></section>`;
+  }
+
+  async function loadEstudios(silent) {
+    if (!silent || !S.est) skeleton();
+    try { S.est = await api('estudios'); if (S.tab === 'estudios') renderEstudios(); }
+    catch (e) { if (S.tab === 'estudios') view.innerHTML = errBox(e.message, 'reload-est'); }
+  }
+  function renderEstudios() {
+    const e = S.est; if (!e) return;
+    const hoy = todayIso();
+    const pend = e.tareas.filter((t) => !t.hecha);
+    const late = pend.filter((t) => t.fecha && t.fecha < hoy).length;
+    const week = pend.filter((t) => t.fecha && t.fecha >= hoy && dDiff(hoy, t.fecha) < 7).length;
+    const withTasks = subjectList().filter((s) => pend.some((t) => t.asignatura === s));
+    pend.forEach((t) => { if (t.asignatura && !withTasks.includes(t.asignatura)) withTasks.push(t.asignatura); });
+    if (S.estFilter !== 'Todas' && !withTasks.includes(S.estFilter) && !e.tareas.some((t) => t.asignatura === S.estFilter)) S.estFilter = 'Todas';
+    const f = S.estFilter, match = (t) => f === 'Todas' || t.asignatura === f;
+    const shown = pend.filter(match).sort(byDue);
+    const groups = ['Atrasadas', 'Hoy', 'Mañana', 'Esta semana', 'Más adelante', 'Sin fecha'].map((g) => [g, shown.filter((t) => dueInfo(t.fecha).g === g)]).filter(([, l]) => l.length);
+    const done = e.tareas.filter((t) => t.hecha && match(t)).sort((a, b) => byDue(b, a)).slice(0, 30);
+    const left = `
+      ${DEMO ? '<div class="demo-banner">Modo demo: las tareas no se guardan.</div>' : ''}
+      <header class="head"><div><div class="muted small">Curso 2026/27</div><h1>Estudios</h1></div>
+        <button type="button" class="pill addpill" data-e="tnew">${icon('plus')}Tarea</button></header>
+      <div class="stats">
+        <div class="stat"><b>${pend.length}</b><span>pendientes</span></div>
+        <div class="stat ${week ? 'warn' : ''}"><b>${week}</b><span>en 7 días</span></div>
+        <div class="stat ${late ? 'late' : ''}"><b>${late}</b><span>atrasadas</span></div>
+      </div>
+      ${withTasks.length > 1 || f !== 'Todas' ? `<div class="chips scroll">${['Todas'].concat(withTasks).map((s) => `<button type="button" class="chip ${f === s ? 'on' : ''}" data-e="filter" data-v="${esc(s)}">${s === 'Todas' ? 'Todas' : `<i class="sdot" style="background:${subColor(s)}"></i>` + esc(shortSub(s))}</button>`).join('')}</div>` : ''}
+      ${groups.length ? groups.map(([g, l]) => `<section class="tgroup"><div class="section-title"><h2 class="${g === 'Atrasadas' ? 'late' : ''}">${g}</h2><span class="muted small">${l.length}</span></div><div class="tlist card">${l.map(taskRow).join('')}</div></section>`).join('')
+        : `<section class="card empty"><div style="font-size:34px">📚</div><p class="bold" style="margin:6px 0 2px">${f === 'Todas' ? 'No tienes tareas pendientes' : 'Nada pendiente en ' + esc(shortSub(f))}</p><p class="small muted" style="margin:0 0 12px">Apunta aquí cada entrega o examen en cuanto te lo manden.</p><button type="button" class="btn" data-e="tnew">+ Añadir tarea</button></section>`}
+      ${done.length ? `<details class="card donebox"><summary class="row between"><span class="bold">Hechas <span class="muted small">(${done.length})</span></span>${icon('chev', 'chev')}</summary><div class="tlist" style="margin-top:8px">${done.map(taskRow).join('')}</div></details>` : ''}`;
+    const dPr = e.practicas ? Math.max(0, dDiff(hoy, e.practicas)) : null;
+    const right = `
+      <section class="est-top">
+        <div class="card stat-big"><span class="kicker">Prácticas</span><b>${dPr == null ? '–' : dPr}</b><span class="small muted">días · 1 jun 2027</span></div>
+        <div class="card stat-big"><span class="kicker">Media</span><b>${e.media != null ? fmt(e.media, 2) : '–'}</b><span class="small muted">${e.media != null ? 'meta 9' : 'meta 9 · aún sin notas'}</span></div>
+      </section>
+      <section class="card"><div class="kicker" style="margin-bottom:4px">Asignaturas</div><div class="list">${e.asignaturas.map((a) => {
+        const n = pend.filter((t) => t.asignatura === a.nombre).length;
+        let sub = 'Sin fecha de examen · toca para ponerla', cls = 'muted';
+        if (a.final != null) { sub = 'Nota final ' + fmt(a.final, 2) + (a.estado ? ' · ' + a.estado : ''); cls = a.final >= (a.objetivo || 9) ? 'ok' : 'muted'; }
+        else if (a.examen) { const dx = dDiff(hoy, a.examen); sub = 'Examen ' + shortDate(a.examen) + (dx >= 0 ? ' · ' + (dx === 0 ? 'hoy' : 'en ' + dx + ' días') : ' · hecho'); cls = dx >= 0 && dx <= 14 ? 'late' : dx >= 0 && dx <= 30 ? 'warn' : 'muted'; }
+        return `<button type="button" class="li subj" data-e="sedit" data-kind="asig" data-row="${a.row}"><i class="sdot big" style="background:${subColor(a.nombre)}"></i>
+          <span class="txt"><span class="bold">${esc(shortSub(a.nombre))}</span><span class="small ${cls}">${esc(sub)}</span></span>
+          ${n ? `<span class="nbadge" title="${n} tareas pendientes">${n}</span>` : ''}${icon('chev', 'chev')}</button>`;
+      }).join('')}</div></section>
+      <section style="display:flex;flex-direction:column;gap:10px"><div class="section-title"><h2>Certificaciones</h2><span class="muted small">una a una</span></div>
+        ${e.certs.map((c) => {
+          const p = c.total ? Math.min(1, (c.hechos || 0) / c.total) : null;
+          const got = c.estado === '✅ Conseguida';
+          return `<article class="card cert ${got ? 'got' : ''}">
+            <div class="row between" style="align-items:flex-start"><div style="min-width:0"><span class="tiny bold" style="color:${subColor('Cert. ' + c.codigo)}">${esc(c.codigo)}</span><h3>${esc(c.nombre)}</h3></div>
+              <button type="button" class="estado" data-e="sedit" data-kind="cert" data-row="${c.row}">${esc(c.estado || 'Pendiente')}</button></div>
+            ${got ? `<p class="small" style="margin:0">¡Conseguida! 🏅${c.examen ? ' · ' + shortDate(c.examen) : ''}</p>` : c.total ? `<div class="row" style="gap:10px"><div class="bar" style="flex:1"><i style="width:${p * 100}%;background:${subColor('Cert. ' + c.codigo)}"></i></div><span class="small bold">${Math.round(p * 100)}%</span></div>
+              <div class="row between"><div class="mini-step"><button type="button" data-e="cstep" data-row="${c.row}" data-d="-1" aria-label="Un módulo menos">−</button><span><b>${c.hechos || 0}</b> / ${c.total} módulos</span><button type="button" data-e="cstep" data-row="${c.row}" data-d="1" aria-label="Un módulo más">+</button></div>
+              <span class="small muted">${c.horas ? fmt(c.horas, 1) + ' h' : ''}</span></div>`
+              : `<button type="button" class="btn ghost slim" data-e="sedit" data-kind="cert" data-row="${c.row}">¿Cuántos módulos tiene? Ponlo aquí</button>`}
+            <div class="small muted">${c.examen ? 'Examen ' + shortDate(c.examen) : c.objetivo ? 'Objetivo: ' + shortDate(c.objetivo) : ''}${c.notas && !got ? ' · ' + esc(c.notas) : ''}</div>
+          </article>`;
+        }).join('')}</section>
+      ${checklist('Plan de prácticas', 'plan', e.plan)}
+      ${checklist('Currículum empleable', 'cv', e.cv)}`;
+    view.innerHTML = `<div class="cols"><div>${left}</div><div>${right}</div></div>`;
+  }
+  function checklist(title, kind, items) {
+    if (!items || !items.length) return '';
+    const hoy = todayIso();
+    const hechos = items.filter((x) => x.estado === '✅ Hecho').length;
+    const next = items.find((x) => x.estado !== '✅ Hecho');
+    const open = S.estOpen && S.estOpen[kind];
+    return `<details class="card checklist" data-kind="${kind}" ${open ? 'open' : ''}><summary><div class="row between"><span class="kicker">${esc(title)}</span><span class="small bold">${hechos}/${items.length}</span></div>
+      <div class="bar" style="margin:8px 0"><i style="width:${hechos / items.length * 100}%"></i></div>
+      ${next ? `<div class="small"><span class="muted">Siguiente:</span> ${esc(next.tarea)}${next.fecha ? ` <span class="${next.fecha < hoy ? 'late' : 'muted'}">· ${shortDate(next.fecha)}</span>` : ''}</div>` : '<div class="small ok">¡Todo hecho! 🎉</div>'}
+      <div class="tiny muted" style="margin-top:4px">${open ? 'Toca para cerrar' : 'Toca para ver la lista'}</div></summary>
+      <div class="tlist" style="margin-top:8px">${items.map((x) => { const ok = x.estado === '✅ Hecho'; return `<div class="task ${ok ? 'done' : ''}">
+        <button type="button" class="check sm ${ok ? 'on' : ''}" data-e="pdone" data-kind="${kind}" data-row="${x.row}" aria-pressed="${ok}" aria-label="${ok ? 'Desmarcar' : 'Marcar'}: ${esc(x.tarea)}">${ok ? icon('check') : ''}</button>
+        <span class="tbody"><span class="tname">${esc(x.tarea)}</span>${x.estado === 'En curso' ? '<span class="tsub">En curso</span>' : ''}</span>
+        <span class="due ${!ok && x.fecha && x.fecha < hoy ? 'late' : ''}">${x.fecha ? shortDate(x.fecha) : ''}</span></div>`; }).join('')}</div></details>`;
+  }
+
+  // Hoja para crear / editar una tarea
+  function openTask(row) {
+    const t = row ? findTask(row) : null;
+    const fs = S.est && S.estFilter !== 'Todas' ? S.estFilter : '';
+    S.task = t ? { row: t.row, tarea: t.tarea, asignatura: t.asignatura, tipo: t.tipo || 'Entrega', fecha: t.fecha, prioridad: t.prioridad || 'Media', notas: t.notas, hecha: t.hecha, busy: false }
+      : { row: null, tarea: '', asignatura: fs, tipo: 'Entrega', fecha: addDays(todayIso(), 7), prioridad: 'Media', notas: '', busy: false };
+    sheet.hidden = false; renderTask();
+    if (!S.est) api('estudios').then((r) => { S.est = r; if (S.task) renderTask(); }).catch(() => {});
+    if (!t) setTimeout(() => { const i = sheet.querySelector('[data-tf="tarea"]'); if (i) i.focus(); }, 250);
+  }
+  function findTask(row) {
+    row = Number(row);
+    return (S.est && S.est.tareas.find((x) => x.row === row)) || (S.today && (S.today.tareas || []).find((x) => x.row === row)) || null;
+  }
+  function renderTask() {
+    const t = S.task; if (!t) return;
+    const hoy = todayIso();
+    const quick = [['Hoy', hoy], ['Mañana', addDays(hoy, 1)], ['En 1 semana', addDays(hoy, 7)], ['Sin fecha', '']];
+    const ok = t.tarea.trim().length > 0 && !t.busy;
+    sheet.innerHTML = `<div class="sheet${enterCls()}" role="dialog" aria-modal="true" aria-label="${t.row ? 'Editar tarea' : 'Nueva tarea'}">
+      <div class="grab"></div>
+      <div class="row between"><h2 style="font-size:24px">${t.row ? 'Editar tarea' : 'Nueva tarea'}</h2><button type="button" class="chip" data-t="close">Cerrar</button></div>
+      <input class="text-in" type="text" maxlength="200" placeholder="¿Qué tienes que hacer?" value="${esc(t.tarea)}" data-tf="tarea" aria-label="Tarea" enterkeyhint="done">
+      <div><div class="small muted bold" style="margin-bottom:8px">Asignatura</div><div class="chips">${subjectList().map((s) => `<button type="button" class="chip subchip ${t.asignatura === s ? 'on' : ''}" data-t="asig" data-v="${esc(s)}" style="--sc:${subColor(s)}"><i class="sdot" style="background:${subColor(s)}"></i>${esc(shortSub(s))}</button>`).join('')}</div></div>
+      <div><div class="small muted bold" style="margin-bottom:8px">Tipo</div><div class="chips">${TIPOS.map((x) => `<button type="button" class="chip ${t.tipo === x ? 'on' : ''}" data-t="tipo" data-v="${x}">${x}</button>`).join('')}</div></div>
+      <div><div class="small muted bold" style="margin-bottom:8px">Fecha límite${t.fecha ? ' · ' + esc(cap(niceDate(t.fecha))) : ''}</div>
+        <div class="chips">${quick.map(([l, v]) => `<button type="button" class="chip ${t.fecha === v ? 'on' : ''}" data-t="fecha" data-v="${v}">${l}</button>`).join('')}
+        <label class="chip datechip ${t.fecha && !quick.some(([, v]) => v === t.fecha) ? 'on' : ''}">Otra fecha<input type="date" value="${esc(t.fecha)}" data-tf="fecha" aria-label="Elegir fecha"></label></div></div>
+      <div><div class="small muted bold" style="margin-bottom:8px">Prioridad</div><div class="seg">${PRIOS.map((p) => `<button type="button" class="${t.prioridad === p ? 'on' : ''}" data-t="prio" data-v="${p}">${p}</button>`).join('')}</div></div>
+      <input class="text-in" type="text" maxlength="300" placeholder="Notas (opcional)" value="${esc(t.notas)}" data-tf="notas" aria-label="Notas">
+      <button type="button" class="btn" data-t="save" ${ok ? '' : 'disabled'}>${t.busy ? 'Guardando…' : t.row ? 'Guardar cambios' : 'Añadir tarea'}</button>
+      ${t.row ? `<div class="row" style="gap:10px"><button type="button" class="btn ghost" data-t="toggle">${t.hecha ? 'Marcar como pendiente' : 'Marcar como hecha ✓'}</button><button type="button" class="btn ghost danger" data-t="del" style="width:auto">${icon('trash')}</button></div>` : ''}
+    </div>`;
+  }
+  function refreshAfterTasks(tareas) {
+    if (S.est) S.est.tareas = tareas;
+    if (S.today && Array.isArray(S.today.tareas)) {
+      const keep = S.today.tareas.map((x) => x.row);
+      const soon = soonFrom(tareas, S.fecha || todayIso());
+      // mantiene visibles (tachadas) las que acabas de marcar hoy
+      tareas.forEach((x) => { if (x.hecha && keep.includes(x.row) && !soon.some((y) => y.row === x.row)) soon.push(x); });
+      S.today.tareas = soon.sort(byDue);
+    }
+    if (S.tab === 'estudios') renderEstudios(); else if (S.tab === 'hoy') renderToday();
+  }
+  async function saveTask() {
+    const t = S.task; if (!t || !t.tarea.trim()) return;
+    t.busy = true; renderTask();
+    const fields = { tarea: t.tarea.trim(), asignatura: t.asignatura, tipo: t.tipo, fecha: t.fecha, prioridad: t.prioridad, notas: t.notas.trim() };
+    try {
+      const r = t.row ? await api('updateTask', { row: t.row, fields }) : await api('addTask', fields);
+      closeAdd(); toast(t.row ? 'Tarea actualizada ✓' : 'Tarea añadida ✓'); refreshAfterTasks(r.tareas);
+    } catch (err) { t.busy = false; renderTask(); toast(err.message, true); }
+  }
+  async function toggleTask(row) {
+    const t = findTask(row); if (!t) return;
+    const v = !t.hecha;
+    [S.est && S.est.tareas, S.today && S.today.tareas].forEach((l) => (l || []).forEach((x) => { if (x.row === t.row) x.hecha = v; }));
+    if (S.tab === 'estudios') renderEstudios(); else if (S.tab === 'hoy') renderToday();
+    if (v) toast('¡Tarea hecha! ✓');
+    try { const r = await api('updateTask', { row: t.row, fields: { hecha: v } }); refreshAfterTasks(r.tareas); }
+    catch (err) { toast(err.message, true); if (S.tab === 'estudios') loadEstudios(true); else loadToday(true); }
+  }
+  sheet.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-t]'); if (!b || !S.task) return;
+    const t = S.task, a = b.dataset.t, v = b.dataset.v;
+    if (a === 'close') return closeAdd();
+    if (a === 'asig') t.asignatura = t.asignatura === v ? '' : v;
+    if (a === 'tipo') t.tipo = v;
+    if (a === 'fecha') t.fecha = v;
+    if (a === 'prio') t.prioridad = v;
+    if (a === 'save') return saveTask();
+    if (a === 'toggle') { const row = t.row; closeAdd(); return toggleTask(row); }
+    if (a === 'del') {
+      if (!confirm('¿Borrar esta tarea?')) return;
+      try { const r = await api('deleteTask', { row: t.row }); closeAdd(); toast('Tarea borrada'); if (S.today && S.today.tareas) S.today.tareas = S.today.tareas.filter((x) => x.row !== t.row); refreshAfterTasks(r.tareas); }
+      catch (err) { toast(err.message, true); }
+      return;
+    }
+    renderTask();
+  });
+  sheet.addEventListener('input', (e) => {
+    const f = e.target.dataset && e.target.dataset.tf; if (!f || !S.task) return;
+    S.task[f] = e.target.value;
+    if (f === 'tarea') { const btn = sheet.querySelector('[data-t="save"]'); if (btn) btn.disabled = !e.target.value.trim(); }
+  });
+  sheet.addEventListener('change', (e) => { if (e.target.dataset && e.target.dataset.tf === 'fecha' && S.task) { S.task.fecha = e.target.value; renderTask(); } });
+  sheet.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.dataset && e.target.dataset.tf === 'tarea' && S.task && S.task.tarea.trim()) { e.preventDefault(); saveTask(); } });
+
+  // Hoja para editar asignatura / certificación
+  function openStudy(kind, row) {
+    const e = S.est; if (!e) return;
+    const it = (kind === 'asig' ? e.asignaturas : e.certs).find((x) => x.row === Number(row)); if (!it) return;
+    S.sedit = kind === 'asig' ? { kind, row: it.row, nombre: it.nombre, examen: it.examen, objetivo: it.objetivo == null ? '' : String(it.objetivo), final: it.final == null ? '' : String(it.final), estado: it.estado || 'Cursando', busy: false }
+      : { kind, row: it.row, nombre: it.nombre, examen: it.examen, total: it.total == null ? '' : String(it.total), hechos: it.hechos == null ? '' : String(it.hechos), estado: it.estado || 'Pendiente', busy: false };
+    sheet.hidden = false; renderStudy();
+  }
+  function renderStudy() {
+    const s = S.sedit; if (!s) return;
+    const estados = s.kind === 'asig' ? ['Pendiente', 'Cursando', '✅ Aprobada', 'Suspensa'] : ['Pendiente', 'En curso', 'Examen reservado', '✅ Conseguida'];
+    const num = (f, l, ph) => `<label class="field"><span class="small muted bold">${l}</span><input class="text-in" type="text" inputmode="decimal" value="${esc(s[f])}" data-sf="${f}" placeholder="${ph}"></label>`;
+    const tasks = s.kind === 'asig' && S.est ? S.est.tareas.filter((t) => t.asignatura === s.nombre && !t.hecha).sort(byDue) : [];
+    sheet.innerHTML = `<div class="sheet${enterCls()}" role="dialog" aria-modal="true" aria-label="${esc(s.nombre)}">
+      <div class="grab"></div>
+      <div class="row between" style="align-items:flex-start"><div><span class="tiny bold" style="color:${subColor(s.kind === 'asig' ? s.nombre : 'Cert. ' + (S.est.certs.find((c) => c.row === s.row) || {}).codigo)}">${s.kind === 'asig' ? 'ASIGNATURA' : 'CERTIFICACIÓN'}</span><h2 style="font-size:22px">${esc(s.nombre)}</h2></div><button type="button" class="chip" data-s="close">Cerrar</button></div>
+      <label class="field"><span class="small muted bold">Fecha del examen</span><input class="text-in" type="date" value="${esc(s.examen)}" data-sf="examen"></label>
+      ${s.kind === 'asig' ? `<div class="row" style="gap:10px;align-items:flex-end">${num('objetivo', 'Nota objetivo', '9')}${num('final', 'Nota final', 'cuando la sepas')}</div>`
+        : `<div class="row" style="gap:10px;align-items:flex-end">${num('total', 'Módulos totales', 'p. ej. 12')}${num('hechos', 'Módulos hechos', '0')}</div>`}
+      <div><div class="small muted bold" style="margin-bottom:8px">Estado</div><div class="chips">${estados.map((x) => `<button type="button" class="chip ${s.estado === x ? 'on' : ''}" data-s="estado" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div></div>
+      <button type="button" class="btn" data-s="save" ${s.busy ? 'disabled' : ''}>${s.busy ? 'Guardando…' : 'Guardar'}</button>
+      ${s.kind === 'asig' ? `<div><div class="small muted bold" style="margin:4px 0 8px">Tareas pendientes (${tasks.length})</div>${tasks.length ? `<div class="tlist">${tasks.map((t) => { const d = dueInfo(t.fecha); return `<div class="task"><span class="tbody"><span class="tname">${esc(t.tarea)}</span><span class="tsub">${esc(t.tipo || '')}</span></span><span class="due ${d.c}">${esc(d.t)}</span></div>`; }).join('')}</div>` : '<p class="small muted" style="margin:0">Ninguna.</p>'}
+        <button type="button" class="btn ghost slim" data-s="newtask" style="margin-top:10px">+ Tarea de ${esc(shortSub(s.nombre))}</button></div>` : ''}
+    </div>`;
+  }
+  sheet.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-s]'); if (!b || !S.sedit) return;
+    const s = S.sedit, a = b.dataset.s;
+    if (a === 'close') return closeAdd();
+    if (a === 'estado') { s.estado = b.dataset.v; return renderStudy(); }
+    if (a === 'newtask') { const n = s.nombre; closeAdd(); openTask(null); S.task.asignatura = n; return renderTask(); }
+    if (a === 'save') {
+      const fields = s.kind === 'asig' ? { examen: s.examen, objetivo: s.objetivo, final: s.final, estado: s.estado } : { examen: s.examen, total: s.total, hechos: s.hechos, estado: s.estado };
+      for (const k of ['objetivo', 'final', 'total', 'hechos']) {
+        if (k in fields && fields[k] !== '' && isNaN(Number(String(fields[k]).replace(',', '.')))) return toast('Revisa el número de "' + k + '"', true);
+      }
+      s.busy = true; renderStudy();
+      try { S.est = await api('updateStudy', { kind: s.kind, row: s.row, fields }); closeAdd(); toast('Guardado ✓'); if (S.tab === 'estudios') renderEstudios(); }
+      catch (err) { s.busy = false; renderStudy(); toast(err.message, true); }
+    }
+  });
+  sheet.addEventListener('input', (e) => { const f = e.target.dataset && e.target.dataset.sf; if (f && S.sedit) S.sedit[f] = e.target.value; });
+
+  // Clics en Estudios y en la tarjeta de tareas de Hoy
+  let certTimers = {};
+  view.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-e],[data-act="reload-est"]'); if (!b) return;
+    if (b.dataset.act === 'reload-est') return loadEstudios();
+    const a = b.dataset.e;
+    if (a === 'goest') return go('estudios');
+    if (a === 'tnew') return openTask(null);
+    if (a === 'tedit') return openTask(b.dataset.row);
+    if (a === 'tdone') return toggleTask(b.dataset.row);
+    if (a === 'filter') { S.estFilter = b.dataset.v; return renderEstudios(); }
+    if (a === 'sedit') return openStudy(b.dataset.kind, b.dataset.row);
+    if (a === 'cstep') {
+      const c = S.est.certs.find((x) => x.row === Number(b.dataset.row)); if (!c) return;
+      c.hechos = Math.max(0, Math.min(c.total || 999, (c.hechos || 0) + Number(b.dataset.d)));
+      renderEstudios();
+      clearTimeout(certTimers[c.row]);
+      certTimers[c.row] = setTimeout(async () => {
+        try { S.est = await api('updateStudy', { kind: 'cert', row: c.row, fields: { hechos: c.hechos } }); if (S.tab === 'estudios') renderEstudios(); if (c.total && c.hechos >= c.total) toast('¡Todos los módulos hechos! Ahora, a por el examen 💪'); }
+        catch (err) { toast(err.message, true); loadEstudios(true); }
+      }, 700);
+      return;
+    }
+    if (a === 'pdone') {
+      const kind = b.dataset.kind, it = S.est[kind].find((x) => x.row === Number(b.dataset.row)); if (!it) return;
+      const nuevo = it.estado === '✅ Hecho' ? 'Pendiente' : '✅ Hecho';
+      it.estado = nuevo; S.estOpen = Object.assign({}, S.estOpen, { [kind]: true }); renderEstudios();
+      if (nuevo === '✅ Hecho') toast('¡Un paso más hacia junio! ✓');
+      try { S.est = await api('updateStudy', { kind, row: it.row, fields: { estado: nuevo } }); if (S.tab === 'estudios') renderEstudios(); }
+      catch (err) { toast(err.message, true); loadEstudios(true); }
+    }
+  });
+  view.addEventListener('toggle', (e) => {
+    const d = e.target; if (!d.classList || !d.classList.contains('checklist')) return;
+    S.estOpen = Object.assign({}, S.estOpen, { [d.dataset.kind]: d.open });
+    const hint = d.querySelector('summary .tiny'); if (hint) hint.textContent = d.open ? 'Toca para cerrar' : 'Toca para ver la lista';
+  }, true);
+
 
   // ─── VISIÓN ──────────────────────────────────────────────────
   const AREA_COLOR = { Estudios: '#6D4AFF', Carrera: '#2456E6', Empleable: '#0369A1', Cuerpo: '#0F766E', Disfrutar: '#BE185D', 'Canadá': '#B45309', 'Sueños': '#1E3A8A' };
@@ -649,7 +963,7 @@
   function openGallery(k) {
     const c = S.vision.cards[k]; if (!c) return;
     sheet.hidden = false;
-    sheet.innerHTML = `<div class="sheet gallery" role="dialog" aria-modal="true" aria-label="Fotos de ${esc(c.area)}">
+    sheet.innerHTML = `<div class="sheet gallery${enterCls()}" role="dialog" aria-modal="true" aria-label="Fotos de ${esc(c.area)}">
       <div class="grab"></div>
       <div class="row between"><div><span class="tiny bold" style="color:${AREA_COLOR[c.area]}">${esc(c.area).toUpperCase()}</span><h2 style="font-size:22px">${esc(c.meta || c.area)}</h2></div>
         <button type="button" class="icon-btn" data-g="close" aria-label="Cerrar">${icon('close')}</button></div>

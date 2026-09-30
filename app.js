@@ -3,13 +3,13 @@
   'use strict';
   const CFG = window.CONFIG || {};
   const DEMO = !CFG.API_URL;
-  const APP_VERSION = '1.2 · fase 2 (Estudios, tareas y calendario)';
+  const APP_VERSION = '1.3 · fase 2 completa';
   const LS = { pin: 'l2627.pin', sound: 'l2627.sound', theme: 'l2627.theme' };
   const $ = (s, el) => (el || document).querySelector(s);
   const view = $('#view'), tabs = $('#tabs'), sheet = $('#sheet'), toastEl = $('#toast'), timerEl = $('#timer');
 
   const S = { pin: store('get', LS.pin), tab: 'hoy', fecha: null, today: null, meta: null, gym: null, gymMode: '60', gymRutina: null,
-    pending: 0, seq: 0, add: null, est: null, estFilter: 'Todas', estOpen: {}, task: null, sedit: null, timer: null, soundLocal: store('get', LS.sound) !== 'off' };
+    pending: 0, seq: 0, add: null, est: null, din: null, dinCat: '', fix: null, prog: null, progHabit: null, progMonth: null, estFilter: 'Todas', estOpen: {}, task: null, sedit: null, timer: null, soundLocal: store('get', LS.sound) !== 'off' };
 
   // ─── Utilidades ──────────────────────────────────────────────
   function store(op, k, v) { try { if (op === 'get') return localStorage.getItem(k); if (op === 'set') localStorage.setItem(k, v); if (op === 'del') localStorage.removeItem(k); } catch (e) { return null; } return null; }
@@ -104,7 +104,7 @@
 
   function renderTabs() {
     const t = [['hoy', 'Hoy'], ['estudios', 'Estudios'], ['add', ''], ['gym', 'Gym'], ['mas', 'Más']];
-    const cur = S.tab === 'vision' ? 'mas' : S.tab;
+    const cur = ['vision', 'dinero', 'progreso'].includes(S.tab) ? 'mas' : S.tab;
     tabs.innerHTML = t.map(([k, l]) => k === 'add'
       ? `<button type="button" class="add" data-tab="add" aria-label="Añadir">${icon('plus')}</button>`
       : `<button type="button" data-tab="${k}" class="${cur === k ? 'on' : ''}">${icon(k)}<span>${l}</span></button>`).join('');
@@ -121,6 +121,8 @@
     else if (tab === 'gym') loadGym();
     else if (tab === 'mas') loadMas();
     else if (tab === 'vision') loadVision();
+    else if (tab === 'dinero') { if (S.din) renderDinero(); loadDinero(S.din ? S.din.mes : '', true); }
+    else if (tab === 'progreso') { if (S.prog) renderProgreso(); loadProgreso(); }
     else if (tab === 'estudios') { if (S.est) renderEstudios(); loadEstudios(true); }
     else if (tab === 'recetas') renderSoon('Recetas', 'Tus 20 recetas, el menú semanal y la lista de la compra para WhatsApp llegan en la fase 3. Mientras, las tienes en la hoja "Recetas" de tu Google Sheets.');
   }
@@ -173,7 +175,7 @@
         ${t.bestStreak && t.bestStreak.days ? `<span class="pill flame" title="${esc(labelOf(t.bestStreak.name))}">${icon('flame')}${t.bestStreak.days} días</span>` : ''}
       </header>
       ${t.frase && t.frase.text ? `<section class="quote"><span class="kicker">Frase del día</span><p>“${esc(t.frase.text)}”</p><span class="src">${esc(t.frase.autor)}</span></section>` : ''}
-      <section class="card ring-card">
+      <section class="card ring-card tap" data-act="goprog" role="button" tabindex="0" aria-label="Ver tu progreso">
         <div class="ring"><svg viewBox="0 0 84 84"><circle class="track" cx="42" cy="42" r="34" fill="none" stroke-width="10"/><circle class="bar" cx="42" cy="42" r="34" fill="none" stroke-width="10" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${off}"/></svg><span>${Math.round(t.pct * 100)}%</span></div>
         <div><div class="bold" style="font-size:17px">${doneN} de ${daily.length} hábitos</div><div class="muted small" style="margin-top:4px">${t.pct >= 1 ? '¡Día completo! Has votado por quien quieres ser.' : 'Cada ✓ es un voto por la persona que quieres ser.'}</div></div>
       </section>
@@ -195,7 +197,7 @@
         ${weekly.filter((h) => h.i !== 11).map((h) => habitRow(h, t, true)).join('')}
       </section>
       ${t.agenda && t.agenda.length ? `<section class="card agenda"><div class="kicker" style="margin-bottom:8px">Tu día</div>${t.agenda.map((a) => `<div class="it"><span class="t">${esc(a.inicio)}</span><span class="ln" style="background:${agColor(a.tipo)}"></span><div><div class="bold" style="font-size:15px">${esc(a.actividad)}</div><div class="small muted">${esc(a.inicio)}–${esc(a.fin)}${a.notas ? ' · ' + esc(a.notas) : ''}</div></div></div>`).join('')}</section>` : ''}
-      <section class="money"><div><span class="small">Gastado ${isToday ? 'hoy' : 'ese día'}</span><b>${eur(t.money.gastadoHoy)}</b></div><div style="text-align:right"><span class="small">Te queda este mes</span><b>${eur(t.money.queda)}</b></div></section>
+      <section class="money tap" data-act="godin" role="button" tabindex="0" aria-label="Ver tu dinero"><div><span class="small">Gastado ${isToday ? 'hoy' : 'ese día'}</span><b>${eur(t.money.gastadoHoy)}</b></div><div style="text-align:right"><span class="small">Te queda este mes</span><b>${eur(t.money.queda)}</b></div></section>
       ${lvl2.length ? `<details class="level2 card"><summary class="row between"><span><b>Nivel 2</b> <span class="muted small">· puedes marcarlos, no cuentan en tu %</span></span>${icon('chev', 'chev')}</summary><div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">${lvl2.map((h) => habitRow(h, t)).join('')}</div></details>` : ''}`;
     view.innerHTML = `<div class="cols"><div>${left}</div><div>${right}</div></div>`;
   }
@@ -248,6 +250,8 @@
     if (act === 'reload-today') return loadToday();
     if (act === 'day') { const nf = addDays(S.fecha, Number(b.dataset.d)); if (nf > todayIso() || nf < '2026-10-01') return; S.fecha = nf; S.fechaAuto = nf === todayIso(); return loadToday(); }
     if (act === 'gogym') return go('gym');
+    if (act === 'goprog') return go('progreso');
+    if (act === 'godin') return go('dinero');
     if (act === 'toggle') {
       const h = S.today.habits.find((x) => x.i === Number(b.dataset.i)); if (!h) return;
       h.value = !h.value; h.done = habitDone(h);
@@ -488,7 +492,7 @@
     if (!S.meta) { try { S.meta = await api('meta'); renderAdd(); } catch (e) { toast(e.message, true); } }
   }
   function enterCls() { return sheet.children.length ? '' : ' enter'; }
-  function closeAdd() { sheet.hidden = true; sheet.innerHTML = ''; S.add = null; S.task = null; S.sedit = null; }
+  function closeAdd() { sheet.hidden = true; sheet.innerHTML = ''; S.add = null; S.task = null; S.sedit = null; S.fix = null; }
   function renderAdd() {
     const a = S.add; if (!a) return;
     const m = S.meta;
@@ -535,7 +539,7 @@
         toast(msg, r.categoria && r.categoria.queda < 0);
         if (S.today && r.money) S.today.money = r.money;
         closeAdd();
-        if (S.tab === 'hoy') renderToday(); else if (S.tab === 'mas') renderMas();
+        if (S.tab === 'hoy') renderToday(); else if (S.tab === 'mas') renderMas(); else if (S.tab === 'dinero') loadDinero(S.din ? S.din.mes : '', true);
       } catch (err) { a.busy = false; renderAdd(); toast(err.message, true); }
       return;
     }
@@ -552,11 +556,13 @@
   function renderMas() {
     const m = S.meta || { recientes: [], saldos: {} };
     const s = m.saldos || {};
-    const soon = [['💶', 'Dinero', 'fase 2 · lo siguiente'], ['📈', 'Progreso y calendario de hábitos', 'fase 2'],
+    const soon = [
       ['🍳', 'Recetas y menú', 'fase 3'], ['📚', 'Biblioteca', 'fase 3'], ['🛍️', 'Me gustaría comprar', 'fase 3'], ['🔁', 'Revisión semanal + resumen para Claude', 'fase 3']];
     let vis = S.vision; if (!vis) { try { vis = JSON.parse(store('get', 'l2627.vision') || 'null'); } catch (e) { vis = null; } }
     const vImg = vis && (vis.cards || []).map((c) => c.images && c.images[0]).find(Boolean);
     view.innerHTML = `<header class="head"><h1>Más</h1></header>
+      <div class="tiles"><button type="button" class="tile" data-m="dinero"><span class="te">💶</span><span class="tt">Dinero</span><span class="ts">${eur(m.saldos && m.saldos.total)}</span></button>
+        <button type="button" class="tile" data-m="progreso"><span class="te">📈</span><span class="tt">Progreso</span><span class="ts">rachas y medallas</span></button></div>
       <button type="button" class="vtile" data-m="vision"><span class="vimg" ${vImg ? `data-img="${esc(vImg)}"` : ''}></span><span class="vtile-txt"><span class="tiny bold">MI VISIÓN</span><span class="vfrase">Mis metas y mis fotos</span></span>${icon('chev')}</button>
       <div class="cols"><div>
       <section class="card"><div class="kicker" style="margin-bottom:10px">Tu dinero hoy</div>
@@ -583,6 +589,8 @@
     if (b.dataset.act === 'reload-mas') return loadMas();
     const m = b.dataset.m;
     if (m === 'vision') return go('vision');
+    if (m === 'dinero') return go('dinero');
+    if (m === 'progreso') return go('progreso');
     if (m === 'calsync') {
       S.calBusy = true; renderMas();
       try { const r = await api('calSync'); if (S.meta) S.meta.calendario = r.calendario; toast('Calendario al día ✓ · ' + r.eventos + ' eventos' + (r.pendientes ? ' (faltan ' + r.pendientes + ', siguen en la próxima hora)' : '')); }
@@ -617,6 +625,259 @@
   function renderSoon(title, text) {
     view.innerHTML = `<header class="head"><h1>${esc(title)}</h1></header><section class="card"><span class="soon">fase 3</span><p style="margin:10px 0 0">${esc(text)}</p></section>`;
   }
+
+  // ─── DINERO ──────────────────────────────────────────────────
+  async function loadDinero(mes, silent) {
+    if (!silent || !S.din) skeleton();
+    try { S.din = await api('dinero', { mes: mes == null ? (S.din ? S.din.mes : '') : mes }); if (S.tab === 'dinero') renderDinero(); }
+    catch (e) { if (S.tab === 'dinero') view.innerHTML = errBox(e.message, 'reload-din'); }
+  }
+  const pctOf = (g, l) => (l > 0 ? g / l : g > 0 ? 9 : 0);
+  function statusOf(p) { return p > 1 ? 'over' : p >= 0.8 ? 'near' : 'ok'; }
+  function backLink() { return `<button type="button" class="linkbtn back" data-d="back">‹ Más</button>`; }
+  function renderDinero() {
+    const d = S.din; if (!d) return;
+    const p = pctOf(d.gastado, d.limite), st = statusOf(p);
+    const queda = d.queda == null ? d.limite - d.gastado : d.queda;
+    const max = Math.max(1, ...d.serie.map((x) => Math.max(x.gastado || 0, x.limite || 0)));
+    const H = 120, W = 12 * 28;
+    const bars = d.serie.map((x, k) => {
+      const g = x.gastado || 0, h = Math.max(g > 0 ? 3 : 0, g / max * H), lh = (x.limite || 0) / max * H;
+      const cls = k === d.mes ? 'sel' : (x.gastado == null ? 'fut' : '');
+      return `<g class="mbar ${cls}" data-d="mes" data-v="${k}"><title>${esc(x.mes)}: ${x.gastado == null ? 'sin datos' : eur(g) + ' de ' + eur(x.limite)}</title>
+        <rect class="hit" x="${k * 28}" y="0" width="28" height="${H + 22}"/>
+        ${h ? `<path class="b ${statusOf(pctOf(g, x.limite || 0))}" d="M${k * 28 + 6},${H} v-${Math.max(0, h - 4)} q0,-4 4,-4 h8 q4,0 4,4 v${Math.max(0, h - 4)} z"/>` : ''}
+        ${x.limite ? `<line class="lim" x1="${k * 28 + 3}" x2="${k * 28 + 25}" y1="${H - lh}" y2="${H - lh}"/>` : ''}
+        <text x="${k * 28 + 14}" y="${H + 16}" text-anchor="middle">${esc(String(x.mes).slice(0, 1))}</text></g>`;
+    }).join('');
+    const cats = d.categorias.filter((c) => c.limite > 0 || c.gastado > 0)
+      .sort((a, b) => (a.tipo === 'Fijo') - (b.tipo === 'Fijo') || pctOf(b.gastado, b.limite) - pctOf(a.gastado, a.limite));
+    const h = d.hucha || {}; const hp = h.meta ? Math.min(1, (h.saldo || 0) / h.meta) : 0;
+    const faltan = h.meta && h.aportacion ? Math.max(0, Math.ceil((h.meta - (h.saldo || 0)) / h.aportacion)) : null;
+    const left = `
+      ${DEMO ? '<div class="demo-banner">Modo demo: los datos son de ejemplo.</div>' : ''}
+      ${backLink()}
+      <header class="head"><h1>Dinero</h1>
+        <div class="monthnav"><button type="button" data-d="mes" data-v="${d.mes - 1}" ${d.mes <= 0 ? 'disabled' : ''} aria-label="Mes anterior">‹</button><span>${esc(d.meses[d.mes])}</span><button type="button" data-d="mes" data-v="${d.mes + 1}" ${d.mes >= 11 ? 'disabled' : ''} aria-label="Mes siguiente">›</button></div></header>
+      <section class="card hero-money ${st}">
+        <span class="kicker">Gastado en ${esc(d.meses[d.mes])}</span>
+        <div class="big">${eur(d.gastado)}</div>
+        <div class="bar thick"><i style="width:${Math.min(100, p * 100)}%"></i></div>
+        <div class="row between small"><span class="muted">Límite ${eur(d.limite)} · ${Math.round(p * 100)}%</span>
+          <b class="st-${st}">${queda >= 0 ? 'Te quedan ' + eur(queda) : '⚠ Te has pasado ' + eur(-queda)}</b></div>
+      </section>
+      <div class="stats">
+        <div class="stat"><b class="sm">${eur(d.totalIngresos)}</b><span>ingresos</span></div>
+        <div class="stat"><b class="sm">${eur(d.ahorro)}</b><span>a la cuenta ahorro</span></div>
+        <div class="stat"><b>${d.diasSinGastar == null ? '–' : d.diasSinGastar}</b><span>días sin gastar</span></div>
+      </div>
+      <section class="card"><div class="row between" style="margin-bottom:8px"><span class="kicker">Gasto por mes</span><span class="tiny muted"><i class="limkey"></i> límite</span></div>
+        <svg class="mchart" viewBox="0 0 ${W} ${H + 22}" role="img" aria-label="Gasto de cada mes frente a tu límite">${bars}</svg>
+        <p class="tiny muted" style="margin:6px 0 0">Toca una barra para ver ese mes.</p></section>
+      <section class="card"><div class="kicker" style="margin-bottom:4px">Por categoría</div><div class="list">${cats.map((c) => {
+        const cp = pctOf(c.gastado, c.limite), cs = statusOf(cp);
+        return `<button type="button" class="li catrow" data-d="cat" data-v="${esc(c.nombre)}"><span class="txt"><span class="row between"><span class="bold">${esc(c.nombre)}${c.tipo === 'Fijo' ? ' <span class="tiny muted">fijo</span>' : ''}</span><span class="small"><b>${eur(c.gastado)}</b> <span class="muted">/ ${eur(c.limite)}</span></span></span>
+          <span class="bar ${cs}"><i style="width:${Math.min(100, cp * 100)}%"></i></span>${cs === 'over' ? `<span class="tiny st-over">⚠ Te has pasado ${eur(c.gastado - c.limite)}</span>` : cs === 'near' && c.tipo !== 'Fijo' && cp < 1 ? `<span class="tiny st-near">Cuidado: quedan ${eur(c.limite - c.gastado)}</span>` : ''}</span></button>`;
+      }).join('')}</div></section>`;
+    const sel = S.dinCat;
+    const movs = d.movimientos.filter((m) => !sel || m.categoria === sel);
+    const right = `
+      <section class="card hucha"><div class="row between"><span class="kicker">✈️ Hucha Canadá</span><span class="small bold">${Math.round(hp * 100)}%</span></div>
+        <div class="big sm">${eur(h.saldo)} <span class="muted small">de ${eur(h.meta)}</span></div>
+        <div class="bar thick"><i style="width:${hp * 100}%"></i></div>
+        <span class="small muted">${faltan ? `Con ${eur(h.aportacion)} al mes, la llenas en ${faltan} ${faltan === 1 ? 'mes' : 'meses'}. Cada ingreso extra la acerca.` : '¡Hucha llena! Canadá te espera. 🇨🇦'}</span></section>
+      <section class="card"><div class="kicker" style="margin-bottom:4px">Tus cuentas hoy</div><div class="list">
+        ${(d.cuentas || []).map((c) => `<div class="li"><span style="flex:1">${esc(c)}</span><b>${eur(d.saldos[c])}</b><button type="button" class="chip slimchip" data-d="fix" data-v="${esc(c)}">Corregir</button></div>`).join('')}
+        <div class="li"><span style="flex:1" class="bold">Total</span><b>${eur(d.saldos.total)}</b><span style="width:78px"></span></div></div>
+        <p class="tiny muted" style="margin:6px 0 0">"Corregir" ajusta el saldo si no coincide con tu banco, sin inventar gastos.</p></section>
+      <section class="card"><div class="row between" style="margin-bottom:4px"><span class="kicker">Movimientos de ${esc(d.meses[d.mes])}</span>${sel ? `<button type="button" class="chip slimchip on" data-d="cat" data-v="">${esc(sel)} ✕</button>` : `<span class="small muted">${movs.length}</span>`}</div>
+        <div class="list">${movs.slice(0, 60).map((r) => `<div class="li"><div style="flex:1;min-width:0"><div class="bold" style="font-size:15px">${esc(r.concepto)}</div><div class="small muted">${shortDate(r.fecha)} · ${esc(r.cuenta)}${r.destino ? ' → ' + esc(r.destino) : ''} · ${esc(r.categoria)}</div></div>
+          <b style="color:${r.tipo === 'Ingreso' ? 'var(--green)' : 'inherit'}">${r.tipo === 'Ingreso' ? '+' : r.tipo === 'Gasto' ? '−' : ''}${eur(r.importe)}</b>
+          <button type="button" class="icon-btn" data-d="del" data-v="${r.row}" aria-label="Borrar ${esc(r.concepto)}">${icon('trash')}</button></div>`).join('') || '<p class="small muted">Nada este mes todavía.</p>'}</div></section>`;
+    view.innerHTML = `<div class="cols"><div>${left}</div><div>${right}</div></div>`;
+  }
+  function openFix(cuenta) {
+    S.fix = { cuenta, real: '', busy: false };
+    sheet.hidden = false; renderFix();
+    setTimeout(() => { const i = sheet.querySelector('[data-ff]'); if (i) i.focus(); }, 250);
+  }
+  function renderFix() {
+    const f = S.fix; if (!f) return;
+    const cur = S.din && S.din.saldos ? S.din.saldos[f.cuenta] : null;
+    const v = Number(String(f.real).replace(',', '.'));
+    const ok = f.real !== '' && !isNaN(v);
+    sheet.innerHTML = `<div class="sheet${enterCls()}" role="dialog" aria-modal="true" aria-label="Corregir saldo">
+      <div class="grab"></div>
+      <div class="row between"><h2 style="font-size:22px">Corregir ${esc(f.cuenta)}</h2><button type="button" class="chip" data-x="close">Cerrar</button></div>
+      <p class="small muted" style="margin:0">La app cree que tienes <b>${eur(cur)}</b>. ¿Cuánto tienes de verdad ahora mismo?</p>
+      <input class="text-in big-in" type="text" inputmode="decimal" placeholder="0,00" value="${esc(f.real)}" data-ff="real" aria-label="Saldo real">
+      <p class="small" style="margin:0;min-height:18px" data-x="diff">${ok && cur != null ? diffTxt(v - cur) : ''}</p>
+      <button type="button" class="btn" data-x="save" ${ok && !f.busy ? '' : 'disabled'}>${f.busy ? 'Guardando…' : 'Guardar saldo real'}</button>
+    </div>`;
+  }
+  function diffTxt(x) { x = Math.round(x * 100) / 100; return x === 0 ? 'Coincide: no hace falta cambiar nada.' : (x > 0 ? 'Se sumarán ' : 'Se restarán ') + eur(Math.abs(x)) + ' al saldo de partida de esta cuenta.'; }
+  sheet.addEventListener('input', (e) => {
+    if (!(e.target.dataset && e.target.dataset.ff) || !S.fix) return;
+    S.fix.real = e.target.value;
+    const cur = S.din && S.din.saldos ? S.din.saldos[S.fix.cuenta] : null, v = Number(String(e.target.value).replace(',', '.'));
+    const ok = e.target.value !== '' && !isNaN(v);
+    const dEl = sheet.querySelector('[data-x="diff"]'); if (dEl) dEl.textContent = ok && cur != null ? diffTxt(v - cur) : '';
+    const b = sheet.querySelector('[data-x="save"]'); if (b) b.disabled = !ok;
+  });
+  sheet.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-x]'); if (!b || !S.fix) return;
+    if (b.dataset.x === 'close') return closeAdd();
+    if (b.dataset.x === 'save') {
+      S.fix.busy = true; renderFix();
+      try {
+        const r = await api('fixBalance', { cuenta: S.fix.cuenta, real: S.fix.real, mes: S.din ? S.din.mes : '' });
+        S.din = r; S.meta = null; closeAdd();
+        toast(r.ajuste ? 'Saldo corregido ✓ (' + (r.ajuste > 0 ? '+' : '−') + eur(Math.abs(r.ajuste)) + ')' : 'Ya coincidía ✓');
+        if (S.tab === 'dinero') renderDinero();
+      } catch (err) { S.fix.busy = false; renderFix(); toast(err.message, true); }
+    }
+  });
+
+  // ─── PROGRESO ────────────────────────────────────────────────
+  async function loadProgreso() {
+    if (!S.prog) skeleton();
+    try { S.prog = await api('progreso'); if (S.tab === 'progreso') renderProgreso(); }
+    catch (e) { if (S.tab === 'progreso') view.innerHTML = errBox(e.message, 'reload-prog'); }
+  }
+  const dayOf = (k) => addDays(S.prog.inicio, k);
+  function dailyPct(pr) {
+    const act = pr.habits.filter((h) => h.freq === 'Diario' && h.activo);
+    const out = [];
+    for (let k = 0; k < pr.dias; k++) { const n = act.filter((h) => h.done[k] === '1').length; out.push(act.length ? n / act.length : 0); }
+    return { pct: out, n: act.length };
+  }
+  function streakRuns(str) { let best = 0, cur = 0; for (const c of str) { cur = c === '1' ? cur + 1 : 0; best = Math.max(best, cur); } return best; }
+  function badges(pr, dp) {
+    const hb = (i) => pr.habits.find((h) => h.i === i) || { done: '', best: 0 };
+    const bestAny = Math.max(0, ...pr.habits.filter((h) => h.freq === 'Diario').map((h) => Math.max(h.best || 0, streakRuns(h.done))));
+    const full = dp.pct.map((p) => p >= 1);
+    let perfectWeek = false;
+    for (let k = 0; k + 6 < pr.dias; k++) { if (weekdayIdx(dayOf(k)) === 0 && full.slice(k, k + 7).every(Boolean)) { perfectWeek = true; break; } }
+    const gym = hb(11), gymMeta = gym.veces || 4;
+    let gymWeek = false;
+    for (let k = 0; k < pr.dias; k++) { if (weekdayIdx(dayOf(k)) === 0) { const w = gym.done.slice(k, k + 7).split('').filter((c) => c === '1').length; if (w >= gymMeta) { gymWeek = true; break; } } }
+    const pages = (pr.nums[9] || []).reduce((a, x) => a + (Number(x) || 0), 0);
+    const maxSteps = Math.max(0, ...(pr.nums[10] || []).map((x) => Number(x) || 0));
+    const wake = Math.max(hb(6).best || 0, streakRuns(hb(6).done));
+    return [
+      ['🌱', 'Primer día completo', 'Un día con el 100 %', full.some(Boolean)],
+      ['🔥', 'Racha de 7', '7 días seguidos un hábito', bestAny >= 7],
+      ['⚡', 'Racha de 21', '21 días seguidos', bestAny >= 21],
+      ['🏅', 'Racha de 30', 'Un mes sin fallar', bestAny >= 30],
+      ['🧠', 'Hábito formado', '66 días seguidos', bestAny >= 66],
+      ['💯', 'Racha de 100', '100 días seguidos', bestAny >= 100],
+      ['⭐', 'Semana perfecta', 'Lunes a domingo al 100 %', perfectWeek],
+      ['🏋️', 'Semana de gym', gymMeta + ' entrenos en una semana', gymWeek],
+      ['⏰', 'Madrugadora', '7 días levantándote a tu hora', wake >= 7],
+      ['👣', '10.000 pasos', 'Un día con 10.000 pasos', maxSteps >= 10000],
+      ['📖', '100 páginas', 'Páginas leídas acumuladas', pages >= 100],
+      ['📚', '1.000 páginas', 'Páginas leídas acumuladas', pages >= 1000]
+    ];
+  }
+  const weekdayIdx = (s) => { const [y, m, d] = s.split('-').map(Number); return (new Date(y, m - 1, d).getDay() + 6) % 7; };
+  function avg(arr) { const v = arr.filter((x) => x != null && x !== ''); return v.length ? v.reduce((a, x) => a + Number(x), 0) / v.length : null; }
+  function sum(arr) { return arr.reduce((a, x) => a + (Number(x) || 0), 0); }
+  function renderProgreso() {
+    const pr = S.prog; if (!pr) return;
+    if (pr.empty) {
+      view.innerHTML = `${backLink()}<header class="head"><h1>Progreso</h1></header>
+        <section class="card empty"><div style="font-size:36px">📅</div><p class="bold" style="margin:8px 0 4px">Tu progreso empieza el 1 de octubre</p>
+        <p class="small muted" style="margin:0">Aquí verás tu calendario de hábitos en colores, tus rachas, tus medias de sueño y pasos y las medallas que vayas ganando.</p></section>`;
+      return;
+    }
+    const dp = dailyPct(pr);
+    const selH = S.progHabit ? pr.habits.find((h) => h.i === S.progHabit) : null;
+    const lastDay = dayOf(pr.dias - 1);
+    if (!S.progMonth) S.progMonth = lastDay.slice(0, 7);
+    const [yy, mm] = S.progMonth.split('-').map(Number);
+    const first = S.progMonth + '-01', nDays = new Date(yy, mm, 0).getDate();
+    const lead = weekdayIdx(first);
+    const cells = [];
+    for (let k = 0; k < lead; k++) cells.push('<span class="hc pad"></span>');
+    for (let d = 1; d <= nDays; d++) {
+      const f = S.progMonth + '-' + String(d).padStart(2, '0'), k = dDiff(pr.inicio, f);
+      if (k < 0 || k >= pr.dias) { cells.push(`<span class="hc fut">${d}</span>`); continue; }
+      let lvl, lab;
+      if (selH) { const on = selH.done[k] === '1'; lvl = on ? 4 : 0; lab = on ? 'hecho' : 'sin hacer'; }
+      else { const p = dp.pct[k]; lvl = p >= 1 ? 4 : p >= 0.67 ? 3 : p >= 0.34 ? 2 : p > 0 ? 1 : 0; lab = Math.round(p * 100) + ' %'; }
+      cells.push(`<button type="button" class="hc l${lvl} ${f === lastDay ? 'today' : ''}" data-p="day" data-v="${f}" data-l="${esc(lab)}" aria-label="${esc(cap(niceDate(f)))}: ${esc(lab)}">${d}</button>`);
+    }
+    const mStartK = Math.max(0, dDiff(pr.inicio, first)), mEndK = Math.min(pr.dias - 1, dDiff(pr.inicio, S.progMonth + '-' + nDays));
+    const monthVals = []; for (let k = mStartK; k <= mEndK; k++) monthVals.push(selH ? (selH.done[k] === '1' ? 1 : 0) : dp.pct[k]);
+    const monthPct = monthVals.length ? avg(monthVals) : null;
+    const act = pr.habits.filter((h) => h.activo);
+    const streakNow = selH ? selH.streak : Math.max(0, ...act.filter((h) => h.freq === 'Diario').map((h) => h.streak || 0));
+    const bestAll = selH ? Math.max(selH.best || 0, streakRuns(selH.done)) : Math.max(0, ...act.filter((h) => h.freq === 'Diario').map((h) => Math.max(h.best || 0, streakRuns(h.done))));
+    const last = (i, n) => (pr.nums[i] || []).slice(-n);
+    const numsCard = [['😴', 'Sueño', avg(last(7, 7)), avg(last(7, 30)), 'h', 1], ['👣', 'Pasos', avg(last(10, 7)), avg(last(10, 30)), '', 0], ['📱', 'Móvil', avg(last(8, 7)), avg(last(8, 30)), 'min', 0]];
+    const gym = pr.habits.find((h) => h.i === 11);
+    const weeks = [];
+    if (gym) {
+      let k = pr.dias - 1; k -= weekdayIdx(dayOf(k));
+      for (let w = 0; w < 8 && k + 7 > 0; w++, k -= 7) { const from = Math.max(0, k); weeks.unshift({ from: dayOf(from), n: gym.done.slice(from, k + 7).split('').filter((c) => c === '1').length }); }
+    }
+    const gm = (gym && gym.veces) || 4;
+    const bd = badges(pr, dp);
+    const monthLabel = cap(new Date(yy, mm - 1, 1).toLocaleDateString('es-ES', { month: 'long' })) + ' ' + yy;
+    const left = `
+      ${DEMO ? '<div class="demo-banner">Modo demo: datos de ejemplo.</div>' : ''}
+      ${backLink()}
+      <header class="head"><div><div class="muted small">Día ${pr.dias} de 365</div><h1>Progreso</h1></div></header>
+      <div class="chips scroll"><button type="button" class="chip ${!selH ? 'on' : ''}" data-p="habit" data-v="">Todos</button>${act.map((h) => `<button type="button" class="chip ${selH && selH.i === h.i ? 'on' : ''}" data-p="habit" data-v="${h.i}">${esc(emojiOf(h.name))} ${esc(labelOf(h.name).replace(/\s*\(.*\)/, ''))}</button>`).join('')}</div>
+      <div class="stats">
+        <div class="stat"><b>${streakNow}</b><span>racha actual</span></div>
+        <div class="stat"><b>${bestAll}</b><span>mejor racha</span></div>
+        <div class="stat"><b>${monthPct == null ? '–' : Math.round(monthPct * 100) + '%'}</b><span>${selH ? 'días este mes' : 'media del mes'}</span></div>
+      </div>
+      <section class="card">
+        <div class="row between" style="margin-bottom:10px"><div class="monthnav"><button type="button" data-p="month" data-v="-1" ${S.progMonth <= pr.inicio.slice(0, 7) ? 'disabled' : ''} aria-label="Mes anterior">‹</button><span>${esc(monthLabel)}</span><button type="button" data-p="month" data-v="1" ${S.progMonth >= lastDay.slice(0, 7) ? 'disabled' : ''} aria-label="Mes siguiente">›</button></div>
+          <span class="tiny muted">${selH ? esc(labelOf(selH.name)) : 'núcleo diario'}</span></div>
+        <div class="hgrid head">${['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((x) => `<span>${x}</span>`).join('')}</div>
+        <div class="hgrid">${cells.join('')}</div>
+        <div class="hlegend tiny muted">${selH ? '<span class="hc l0"></span> sin hacer <span class="hc l4"></span> hecho' : '<span>0 %</span><span class="hc l0"></span><span class="hc l1"></span><span class="hc l2"></span><span class="hc l3"></span><span class="hc l4"></span><span>100 %</span>'}</div>
+      </section>`;
+    const right = `
+      <section class="card"><div class="row between" style="margin-bottom:6px"><span class="kicker">Tus números</span><span class="tiny muted">7 días · 30 días</span></div><div class="list">
+        ${numsCard.map(([e, l, a7, a30, u, dec]) => `<div class="li"><span style="font-size:20px">${e}</span><span style="flex:1">${l}</span><b>${a7 == null ? '–' : fmt(a7, dec)} ${u}</b><span class="muted small" style="min-width:70px;text-align:right">${a30 == null ? '–' : fmt(a30, dec)} ${u}</span></div>`).join('')}
+        <div class="li"><span style="font-size:20px">📖</span><span style="flex:1">Páginas leídas</span><b>${fmt(sum(last(9, 7)), 0)}</b><span class="muted small" style="min-width:70px;text-align:right">${fmt(sum(last(9, 30)), 0)}</span></div>
+        <div class="li"><span style="font-size:20px">💻</span><span style="flex:1">Curso online</span><b>${fmt(sum(last(2, 7)) / 60, 1)} h</b><span class="muted small" style="min-width:70px;text-align:right">${fmt(sum(last(2, 30)) / 60, 1)} h</span></div>
+      </div></section>
+      ${weeks.length ? `<section class="card"><div class="row between" style="margin-bottom:10px"><span class="kicker">Gym · últimas semanas</span><span class="tiny muted">meta ${gm}/semana</span></div>
+        <div class="gweeks">${weeks.map((w) => `<div class="gw" title="Semana del ${shortDate(w.from)}: ${w.n} de ${gm}"><div class="gcol">${Array.from({ length: Math.max(gm, w.n) }, (_, j) => `<i class="${j < w.n ? (w.n >= gm ? 'full' : 'on') : ''}"></i>`).reverse().join('')}</div><span class="tiny muted">${shortDate(w.from).replace(/\s.*$/, '')}</span></div>`).join('')}</div></section>` : ''}
+      <section class="card"><div class="row between" style="margin-bottom:10px"><span class="kicker">Medallas</span><span class="small bold">${bd.filter((b) => b[3]).length}/${bd.length}</span></div>
+        <div class="badges">${bd.map(([e, t, dsc, ok]) => `<div class="badge2 ${ok ? 'got' : ''}" title="${esc(dsc)}"><span class="be">${ok ? e : '🔒'}</span><span class="bt">${esc(t)}</span><span class="bd">${esc(dsc)}</span></div>`).join('')}</div></section>`;
+    view.innerHTML = `<div class="cols"><div>${left}</div><div>${right}</div></div>`;
+  }
+
+  // Clics de Dinero y Progreso
+  view.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-d],[data-p],[data-act="reload-din"],[data-act="reload-prog"]'); if (!b) return;
+    if (b.dataset.act === 'reload-din') return loadDinero();
+    if (b.dataset.act === 'reload-prog') return loadProgreso();
+    if (b.dataset.d === 'back' || b.dataset.p === 'back') return go('mas');
+    if (b.dataset.d && S.tab === 'dinero') {
+      const a = b.dataset.d, v = b.dataset.v;
+      if (a === 'mes') { const m = Number(v); if (m >= 0 && m <= 11 && m !== S.din.mes) { S.dinCat = ''; return loadDinero(m, true); } return; }
+      if (a === 'cat') { S.dinCat = S.dinCat === v ? '' : v; renderDinero(); if (S.dinCat) { const el = view.querySelector('.cols > div:last-child .card:last-child'); if (el && window.innerWidth < 820) el.scrollIntoView({ behavior: 'smooth' }); } return; }
+      if (a === 'fix') return openFix(v);
+      if (a === 'del') {
+        if (!confirm('¿Borrar este movimiento?')) return;
+        try { await api('deleteMove', { row: Number(v) }); toast('Movimiento borrado'); S.meta = null; loadDinero(S.din.mes, true); } catch (err) { toast(err.message, true); }
+      }
+      return;
+    }
+    if (b.dataset.p && S.tab === 'progreso') {
+      const a = b.dataset.p, v = b.dataset.v;
+      if (a === 'habit') { S.progHabit = v ? Number(v) : null; return renderProgreso(); }
+      if (a === 'month') { const [y, m] = S.progMonth.split('-').map(Number); const d = new Date(y, m - 1 + Number(v), 1); S.progMonth = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); return renderProgreso(); }
+      if (a === 'day') return toast(cap(niceDate(v)) + ' · ' + b.dataset.l);
+    }
+  });
 
   // ─── ESTUDIOS Y TAREAS ───────────────────────────────────────
   const SHORT = { 'Regression and modeling with SAS': 'Regresión SAS', 'Visualización de datos & reporting empresarial': 'Visualización', 'Data analytics with Google': 'Data Google',

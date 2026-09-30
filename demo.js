@@ -136,6 +136,22 @@ window.DemoAPI = (function () {
       if (action === 'logSet') { const row = nextRow++; logged.push({ row, ejercicio: p.ejercicio, serie: p.serie, kg: p.kg, reps: p.reps }); return res({ ok: true, row, record: p.kg != null && p.serie === 1 && /banca|Sentadilla|muerto/.test(p.ejercicio) }); }
       if (action === 'deleteSet') { const k = logged.findIndex((l) => l.row === p.row); if (k >= 0) logged.splice(k, 1); return res({ ok: true }); }
       if (action === 'calSync') return res({ ok: true, creados: 0, borrados: 0, eventos: 42, pendientes: 0, calendario: { on: true, last: new Date().toISOString(), nombre: 'Laura 26/27', error: '' } });
+      if (action === 'dinero') {
+        const mi = p.mes === '' || p.mes == null ? 0 : Number(p.mes);
+        const meses = ['Oct 2026', 'Nov 2026', 'Dic 2026', 'Ene 2027', 'Feb 2027', 'Mar 2027', 'Abr 2027', 'May 2027', 'Jun 2027', 'Jul 2027', 'Ago 2027', 'Sep 2027'];
+        const cats = [['Gimnasio', 'Fijo', 37.9, 37.9], ['Suscripciones', 'Fijo', 8.98, 2.99], ['Comida fuera y cafés', 'Variable', 17.4, 20], ['Ocio y planes', 'Variable', 24.5, 20], ['Ropa y compras', 'Variable', 0, 10], ['Transporte', 'Variable', 3, 5], ['Deporte extra (pádel)', 'Variable', 5, 10]].map(([nombre, tipo, gastado, limite]) => ({ nombre, tipo, gastado: gastado * (1 - mi * 0.2), limite }));
+        const g = cats.reduce((a, c) => a + c.gastado, 0);
+        const m = meta();
+        return res({ ok: true, mes: mi, meses, actual: 0, hoy: today, categorias: cats, gastado: g, limite: 120.89, queda: 120.89 - g, ingresos: [{ nombre: 'Trabajos puntuales', importe: 60 }], totalIngresos: 60, resultado: 60 - g, ahorro: 30, diasSinGastar: 12,
+          serie: meses.map((x, k) => ({ mes: x, gastado: k <= 2 ? [96.8, 131.4, 88.2][k] : null, limite: k === 2 ? 150.89 : 120.89, total: null })), movimientos: m.recientes, saldos: m.saldos, cuentas: m.cuentas, categoriasGasto: m.categorias, hucha: { saldo: 40, meta: 1200, aportacion: 40 } });
+      }
+      if (action === 'fixBalance') return res({ ok: false, error: 'En la demo no se corrigen saldos' });
+      if (action === 'progreso') {
+        const n = 40, rnd = (k, i) => ((k * 7 + i * 13) % 10) / 10;
+        const habits = defs.map((d, k) => { const i = k + 1; let done = ''; for (let j = 0; j < n; j++) done += rnd(j, i) < (i <= 10 ? 0.75 : 0.5) ? '1' : '0'; return { i, name: d[0], freq: d[3], veces: d[4], activo: d[6], nivel: d[5], meta: d[2], type: d[1], done, streak: 3, best: 9 }; });
+        const nums = { 2: Array.from({ length: n }, (_, j) => 20 + (j % 4) * 10), 7: Array.from({ length: n }, (_, j) => 6.5 + (j % 4) * 0.5), 8: Array.from({ length: n }, (_, j) => 90 + (j % 5) * 12), 9: Array.from({ length: n }, (_, j) => (j % 3) * 8), 10: Array.from({ length: n }, (_, j) => 6000 + (j % 6) * 1100) };
+        return res({ ok: true, inicio: '2026-10-01', hoy: '2026-11-09', dias: n, habits, nums });
+      }
       if (action === 'estudios') return res(est());
       if (action === 'addTask') { if (!String(p.tarea || '').trim()) return res({ ok: false, error: 'Escribe la tarea' }); const t = { row: tRow++, asignatura: p.asignatura || '', tarea: p.tarea, tipo: p.tipo, fecha: p.fecha || '', prioridad: p.prioridad, hecha: false, notas: p.notas || '' }; tareas.push(t); return res({ ok: true, row: t.row, tareas: tareas.slice() }); }
       if (action === 'updateTask') { const t = tareas.find((x) => x.row === Number(p.row)); if (!t) return res({ ok: false, error: 'Esa tarea ya no existe' }); Object.assign(t, p.fields); return res({ ok: true, tareas: tareas.slice() }); }

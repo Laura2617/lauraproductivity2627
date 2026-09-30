@@ -67,6 +67,37 @@ window.DemoAPI = (function () {
   const soonT = (f) => tareas.filter((t) => !t.hecha && t.fecha && t.fecha <= addD(1)).sort((a, b) => (a.fecha < b.fecha ? -1 : 1));
   const est = () => ({ ok: true, hoy: today, certs, asignaturas: asigs, plan: planP, cv: cvL, media: null, practicas: '2027-06-01', tareas: tareas.slice(), tipos: [] });
 
+  const mondayOf = (f) => { const [y, m, d] = f.split('-').map(Number); const dt = new Date(y, m - 1, d); dt.setDate(dt.getDate() - ((dt.getDay() + 6) % 7)); return iso(dt); };
+  let rrow = 5;
+  const recetas = [
+    ['Overnight oats con yogur griego y frutos rojos', 'Desayuno', 5, 1, 22, 0.9, 'rápida', '50 g · copos de avena\n170 g · yogur griego natural\n100 ml · leche\n80 g · frutos rojos', 'Mezcla todo en un tarro la noche antes.\nA la nevera.'],
+    ['Bowl de pollo, arroz y verduras al horno', 'Comida / tupper', 35, 3, 38, 1.9, 'tupper, batch', '450 g · pechuga de pollo\n200 g · arroz (en crudo)\n1 · calabacín\n1 · pimiento rojo\n2 cdas · aceite de oliva', 'Horno a 200 °C.\nPollo y verduras 25 min.\nCuece el arroz.\nReparte en 3 tuppers.'],
+    ['Lentejas estofadas con verduras y huevo duro', 'Comida / tupper', 40, 3, 24, 1.1, 'tupper, batch', '250 g · lentejas pardinas\n1 · zanahoria\n1 · cebolla\n3 · huevos', 'Sofríe la verdura.\nAñade lentejas y agua.\nCuece 30 min.'],
+    ['Pasta integral con atún, tomate y espinacas', 'Comida / tupper', 15, 2, 30, 1.3, 'rápida', '160 g · pasta integral\n2 latas · atún al natural\n300 g · tomate triturado', 'Cuece la pasta.\nSofríe y mezcla.'],
+    ['Tortilla de claras con espinacas y queso', 'Cena', 10, 1, 26, 1.2, 'cena rápida', '200 ml · claras de huevo\n1 · huevo\n1 puñado · espinacas', 'Saltea las espinacas.\nCuaja las claras.'],
+    ['Salmón al horno con patata y brócoli', 'Cena', 30, 1, 30, 3, 'omega 3', '150 g · lomo de salmón\n1 · patata mediana\n150 g · brócoli', 'Horno 200 °C 25 min.'],
+    ['Batido post-gym de plátano y cacahuete', 'Snack / pre-post gym', 5, 1, 25, 0.9, 'post-gym', '250 ml · leche\n1 · plátano\n1 cda · crema de cacahuete', 'Tritura todo.']
+  ].map(([nombre, tipo, min, raciones, proteina, precio, etiquetas, ingredientes, pasos]) => ({ row: rrow++, nombre, tipo, min, raciones, proteina, precio, etiquetas, ingredientes, pasos, enlace: '', estrellas: nombre.startsWith('Bowl') ? 5 : null, notas: '' }));
+  let mrow = 5;
+  const semana0 = mondayOf(today);
+  const menu = [['Lunes', 'Comida', 1], ['Martes', 'Comida', 2], ['Miércoles', 'Comida', 1], ['Jueves', 'Comida', 3], ['Viernes', 'Comida', 2], ['Lunes', 'Cena', 4], ['Martes', 'Cena', 5]]
+    .map(([dia, momento, k]) => ({ row: mrow++, semana: semana0, dia, momento, receta: recetas[k].nombre, tupper: momento === 'Comida' ? 'Sí' : 'No' }));
+  const menuOf = (sem) => menu.filter((m) => m.semana === sem);
+  let brow = 6;
+  const libros = [['Hábitos atómicos', 'James Clear', 'ES', '', 336, 232, 'Leyendo'], ['Storytelling with Data', 'Cole Nussbaumer Knaflic', 'EN', '9781119002253', 288, 0, 'Por leer'], ['La psicología del dinero', 'Morgan Housel', 'ES', '', 272, 0, 'Por leer'], ['Hyperfocus', 'Chris Bailey', 'EN', '9780525522232', 288, 0, 'Por leer'], ['Start with Why', 'Simon Sinek', 'EN', '9781591846444', 256, 0, 'Por leer']]
+    .map(([titulo, autor, idioma, isbn, paginas, pagina, estado], k) => ({ row: brow++, orden: k + 1, titulo, autor, idioma, isbn, paginas, pagina, estado, categoria: '', inicio: '', fin: '', estrellas: null, notas: '', portada: '' }));
+  let prow = 5;
+  const pods = [['Acquired', 'EN', 'Historias de grandes empresas', 'Escuchando', 4], ['Kaizen', 'ES', 'Desarrollo personal y finanzas', 'Por escuchar', 0], ['Hard Fork', 'EN', 'Tecnología e IA', 'Por escuchar', 0], ['The AI Daily Brief', 'EN', 'Noticias de IA', 'Dejado', 2]]
+    .map(([nombre, idioma, tema, estado, episodios]) => ({ row: prow++, nombre, idioma, tema, estado, episodios, actual: '', ideas: '', enlace: '' }));
+  const bib = () => ({ ok: true, libros: libros.slice(), podcasts: pods.slice(), reto: 12, paginasTotal: 1101, hoy: today });
+  let wrow = 6;
+  const deseos = [[addD(-3), 'Zapatillas de pádel', 59.9, 'Alta', 'Pendiente'], [addD(0), 'Funda del iPad', 19.99, 'Media', 'Pendiente'], [addD(-10), 'Sudadera', 35, 'Baja', 'Descartado']]
+    .map(([añadido, cosa, precio, prioridad, estado]) => ({ row: wrow++, añadido, cosa, precio, prioridad, enlace: '', nota: '', estado, decidido: estado === 'Pendiente' ? '' : addD(-8) }));
+  const des = () => ({ ok: true, items: deseos.slice(), pendiente: deseos.filter((x) => x.estado === 'Pendiente').reduce((a, x) => a + (x.precio || 0), 0), ahorrado: deseos.filter((x) => x.estado === 'Descartado').reduce((a, x) => a + (x.precio || 0), 0), hoy: today });
+  let arow = 5;
+  const acts = [{ row: arow++, fecha: addD(-2), actividad: 'Pádel', minutos: 60, notas: '' }];
+  const actividades = () => ({ recientes: acts.slice().sort((a, b) => (a.fecha < b.fecha ? 1 : -1)), meses: ['Oct 2026', 'Nov 2026', 'Dic 2026'].map((mes, k) => ({ mes, padel: k === 0 ? acts.filter((a) => a.actividad === 'Pádel').length : 0, futbol: k === 0 ? acts.filter((a) => a.actividad === 'Fútbol').length : 0, clases: 0, minutos: k === 0 ? acts.reduce((x, a) => x + a.minutos, 0) : 0 })), actual: 0 });
+  const revs = {};
   function habits() {
     return defs.map((d, k) => {
       const i = k + 1, v = vals[i];
@@ -95,7 +126,7 @@ window.DemoAPI = (function () {
       curso, despertar: '07:04', wakeTarget: '07:00', nota: '', sinGastar: '',
       agenda: [{ inicio: '08:00', fin: '10:00', actividad: 'Clase', tipo: 'Clase' }, { inicio: '16:00', fin: '18:30', actividad: 'Estudio', tipo: 'Estudio' }, { inicio: '19:30', fin: '20:30', actividad: 'Gym · ' + (rutinaHoy || 'descanso'), tipo: 'Gym' }],
       gym: { rutina: rutinaHoy, ejercicios: rutinaHoy ? 5 : 0, semana: 1 + (logged.length ? 1 : 0), meta: 4 },
-      money: money(), sonido: true, tareas: soonT()
+      money: money(), sonido: true, tareas: soonT(), menuHoy: menuOf(mondayOf(today)).filter((m) => m.dia === ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][new Date().getDay()])
     };
   }
   function meta() {
@@ -150,8 +181,41 @@ window.DemoAPI = (function () {
         const n = 40, rnd = (k, i) => ((k * 7 + i * 13) % 10) / 10;
         const habits = defs.map((d, k) => { const i = k + 1; let done = ''; for (let j = 0; j < n; j++) done += rnd(j, i) < (i <= 10 ? 0.75 : 0.5) ? '1' : '0'; return { i, name: d[0], freq: d[3], veces: d[4], activo: d[6], nivel: d[5], meta: d[2], type: d[1], done, streak: 3, best: 9 }; });
         const nums = { 2: Array.from({ length: n }, (_, j) => 20 + (j % 4) * 10), 7: Array.from({ length: n }, (_, j) => 6.5 + (j % 4) * 0.5), 8: Array.from({ length: n }, (_, j) => 90 + (j % 5) * 12), 9: Array.from({ length: n }, (_, j) => (j % 3) * 8), 10: Array.from({ length: n }, (_, j) => 6000 + (j % 6) * 1100) };
-        return res({ ok: true, inicio: '2026-10-01', hoy: '2026-11-09', dias: n, habits, nums });
+        return res({ ok: true, inicio: '2026-10-01', hoy: '2026-11-09', dias: n, habits, nums, actividades: actividades() });
       }
+      if (action === 'cocina') { const sem = p.semana ? mondayOf(p.semana) : semana0; return res({ ok: true, semana: sem, hoy: today, recetas: recetas.slice(), menu: menuOf(sem), tipos: ['Desayuno', 'Comida / tupper', 'Cena', 'Snack / pre-post gym'], momentos: ['Desayuno', 'Comida', 'Cena', 'Snack'] }); }
+      if (action === 'setMenu') { const k = menu.findIndex((m) => m.semana === p.semana && m.dia === p.dia && m.momento === p.momento); if (k >= 0) menu.splice(k, 1); if (p.receta) menu.push({ row: mrow++, semana: p.semana, dia: p.dia, momento: p.momento, receta: p.receta, tupper: '' }); return res({ ok: true, semana: p.semana, menu: menuOf(p.semana) }); }
+      if (action === 'addRecipe') { recetas.push({ row: rrow++, nombre: p.nombre, tipo: p.tipo, min: Number(p.min) || null, raciones: Number(p.raciones) || 1, proteina: Number(p.proteina) || null, precio: null, etiquetas: '', ingredientes: p.ingredientes || '', pasos: p.pasos || '', enlace: '', estrellas: null, notas: '' }); return res({ ok: true, recetas: recetas.slice() }); }
+      if (action === 'updateRecipe') { const r = recetas.find((x) => x.row === Number(p.row)); Object.assign(r, p.fields); return res({ ok: true, recetas: recetas.slice() }); }
+      if (action === 'biblioteca') return res(bib());
+      if (action === 'addBook') { libros.push({ row: brow++, orden: libros.length + 1, titulo: p.titulo, autor: p.autor || '', idioma: p.idioma, isbn: String(p.isbn || '').replace(/\D/g, ''), paginas: Number(p.paginas) || null, pagina: 0, estado: p.estado || 'Por leer', categoria: p.categoria || '', inicio: '', fin: '', estrellas: null, notas: '', portada: '' }); return res(bib()); }
+      if (action === 'updateBook') { const b = libros.find((x) => x.row === Number(p.row)); const f = p.fields; let terminado = false;
+        if ('paginas' in f) b.paginas = Number(f.paginas) || null; if ('pagina' in f) { b.pagina = Math.min(b.paginas || 1e9, Number(f.pagina) || 0); if (b.pagina > 0 && b.estado === 'Por leer') b.estado = 'Leyendo'; if (b.paginas && b.pagina >= b.paginas && b.estado !== 'Terminado') f.estado = 'Terminado'; }
+        if ('estado' in f) { if (f.estado === 'Terminado' && b.estado !== 'Terminado') { terminado = true; b.fin = today; } b.estado = f.estado; }
+        ['estrellas', 'notas', 'portada', 'isbn'].forEach((k) => { if (k in f) b[k] = k === 'estrellas' ? (Number(f[k]) || null) : f[k]; });
+        return res(Object.assign(bib(), { terminado })); }
+      if (action === 'addPodcast') { pods.push({ row: prow++, nombre: p.nombre, idioma: p.idioma, tema: p.tema || '', estado: p.estado, episodios: 0, actual: '', ideas: '', enlace: p.enlace || '' }); return res(bib()); }
+      if (action === 'updatePodcast') { const x = pods.find((y) => y.row === Number(p.row)); Object.keys(p.fields).forEach((k) => { x[k] = k === 'episodios' ? Number(p.fields[k]) || 0 : p.fields[k]; }); return res(bib()); }
+      if (action === 'deseos') return res(des());
+      if (action === 'addDeseo') { deseos.push({ row: wrow++, añadido: today, cosa: p.cosa, precio: p.precio === '' ? null : Number(String(p.precio).replace(',', '.')), prioridad: p.prioridad, enlace: p.enlace || '', nota: p.nota || '', estado: 'Pendiente', decidido: '' }); return res(des()); }
+      if (action === 'updateDeseo') { const x = deseos.find((y) => y.row === Number(p.row)); if (p.fields.estado) { x.estado = p.fields.estado; x.decidido = today; } return res(des()); }
+      if (action === 'deleteDeseo') { const k = deseos.findIndex((y) => y.row === Number(p.row)); deseos.splice(k, 1); return res(des()); }
+      if (action === 'addActividad') { acts.push({ row: arow++, fecha: today, actividad: p.actividad, minutos: p.actividad === 'Fútbol' ? 90 : 60, notas: '' }); return res({ ok: true, actividades: actividades() }); }
+      if (action === 'deleteActividad') { const k = acts.findIndex((a) => a.row === Number(p.row)); acts.splice(k, 1); return res({ ok: true, actividades: actividades() }); }
+      if (action === 'revision' || action === 'saveRevision') {
+        const sem = p.semana ? mondayOf(p.semana) : mondayOf(new Date().getDay() >= 1 && new Date().getDay() <= 2 ? addD(-7) : today);
+        if (action === 'saveRevision') revs[sem] = Object.assign({}, revs[sem], p.fields);
+        const rv = revs[sem] || {};
+        const [y, m, d] = sem.split('-').map(Number); const fin = iso(new Date(y, m - 1, d + 6));
+        return res({ ok: true, semana: sem, fin, hoy: today, row: 5, dias: 7, auto: { pct: 0.71, entrenos: 3, gastado: 38.4, paginas: 74, horasCurso: 3.5 },
+          disfrute: rv.disfrute ? Number(rv.disfrute) : null, bien: rv.bien || '', mejorar: rv.mejorar || '', prioridades: rv.prioridades || '',
+          habitos: defs.filter((x) => x[6]).map((x, k) => ({ name: x[0], freq: x[3], veces: x[4], hechos: [7, 5, 6, 7, 4, 5, 3, 6, 5, 2, 3, 1, 1, 0, 0][k] || 0 })),
+          nums: { 7: { media: 7.2 }, 10: { media: 8120 }, 8: { media: 104 }, 9: { total: 74 }, 2: { total: 210 } }, ingresos: 0, topCats: [{ cat: 'Comida fuera y cafés', importe: 17.4 }, { cat: 'Ocio y planes', importe: 12 }],
+          dineroMes: money(), hechasSemana: ['Cuestionario tema 1 (Data Google)'], atrasadas: ['Instalar SAS OnDemand · ' + addD(-1)], proximas: tareas.filter((t) => !t.hecha && t.fecha > today).map((t) => t.tarea + ' · ' + t.fecha),
+          examenes: ['Big Data II · ' + addD(12)], certs: ['DP-900: 3/12 módulos · En curso', 'Claude: sin empezar · Pendiente'], leyendo: ['Hábitos atómicos · pág. 232/336'], actividades: acts.map((a) => a.actividad),
+          medida: { mes: 'Oct 2026', mi: 0, fecha: '', peso: null, sentir: rv.sentir || null, notas: '' }, identidad: 'Soy una persona sana que se cuida, entrena y estudia para sacar lo mejor de sí misma, y ahorra para su futuro.' });
+      }
+      if (action === 'setMedida') { const sem = mondayOf(today); revs[sem] = Object.assign({}, revs[sem], { sentir: Number(p.fields.sentir) }); return res({ ok: true }); }
       if (action === 'estudios') return res(est());
       if (action === 'addTask') { if (!String(p.tarea || '').trim()) return res({ ok: false, error: 'Escribe la tarea' }); const t = { row: tRow++, asignatura: p.asignatura || '', tarea: p.tarea, tipo: p.tipo, fecha: p.fecha || '', prioridad: p.prioridad, hecha: false, notas: p.notas || '' }; tareas.push(t); return res({ ok: true, row: t.row, tareas: tareas.slice() }); }
       if (action === 'updateTask') { const t = tareas.find((x) => x.row === Number(p.row)); if (!t) return res({ ok: false, error: 'Esa tarea ya no existe' }); Object.assign(t, p.fields); return res({ ok: true, tareas: tareas.slice() }); }

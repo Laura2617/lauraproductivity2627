@@ -84,7 +84,7 @@
         <div class="pin-dots">${[0, 1, 2, 3].map((k) => `<i class="${k < pin.length ? 'on' : ''}"></i>`).join('')}</div>
         <div class="err" role="alert">${esc(err || '')}</div>
         <div class="keypad">${['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map((k) => k ? `<button type="button" data-k="${k}" aria-label="${k === '⌫' ? 'Borrar' : k}">${k}</button>` : '<span></span>').join('')}</div>
-        ${DEMO ? '<p class="demo-banner">Modo demo · el PIN es 1212. Conecta tu Google Sheets en config.js.</p>' : ''}
+        ${DEMO ? '<p class="demo-banner">Modo demo · el PIN es 0000. Conecta tu Google Sheets en config.js.</p>' : ''}
       </section>`;
     };
     draw(msg);

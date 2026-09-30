@@ -146,7 +146,7 @@ window.DemoAPI = (function () {
   }
   return function (action, p) {
     return new Promise((res) => setTimeout(() => {
-      if (action === 'ping') return res(p.pin === '1212' ? { ok: true, nombre: 'Laura' } : { ok: false, badPin: true, error: 'PIN incorrecto (en la demo es 1212)' });
+      if (action === 'ping') return res(p.pin === '0000' ? { ok: true, nombre: 'Laura' } : { ok: false, badPin: true, error: 'PIN incorrecto (en la demo es 0000)' });
       if (action === 'today') return res(todayResp(p.fecha));
       if (action === 'setHabit') { vals[p.i] = p.value; return res(todayResp(p.fecha)); }
       if (action === 'setField') { if (p.field === 'curso') curso = p.value; return res(todayResp(p.fecha)); }

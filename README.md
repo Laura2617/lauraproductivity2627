@@ -114,7 +114,7 @@ manifest.webmanifest  instalación como app
 ```
 
 ## Cómo probarla
-Clona el repositorio, deja `API_URL` vacío en `config.js` y sirve la carpeta (por ejemplo, `python3 -m http.server`). Se abre en **modo demo** con el PIN `0000`.
+Clona el repositorio, deja `API_URL` vacío en `config.js` y sirve la carpeta (por ejemplo, `python3 -m http.server`). Se abre en **modo demo** con el PIN `1212`.
 
 ## Fases
 - **Fase 1:** Hoy, Añadir, Gym, Visión y Más.

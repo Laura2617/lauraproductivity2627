@@ -447,3 +447,8 @@ input[type="date"].text-in { -webkit-appearance: none; appearance: none; line-he
 .faces { display: flex; gap: 8px; }
 .faces button { flex: 1; height: 48px; border-radius: 14px; border: 1px solid var(--line); background: var(--soft); font-size: 24px; filter: grayscale(.7); opacity: .7; }
 .faces button.on { filter: none; opacity: 1; border-color: var(--blue); background: var(--blue-soft); }
+.mods summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-top: 1px solid var(--line); }
+.mods summary::-webkit-details-marker { display: none; }
+.mods summary .chev { width: 18px; height: 18px; color: var(--muted); transition: transform .2s; }
+.mods[open] summary .chev { transform: rotate(90deg); }
+.mods .tlist { margin-bottom: 4px; }

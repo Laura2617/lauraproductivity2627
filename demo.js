@@ -59,13 +59,17 @@ window.DemoAPI = (function () {
   ].map(([asignatura, tarea, tipo, fecha, prioridad, hecha]) => ({ row: tRow++, asignatura, tarea, tipo, fecha, prioridad, hecha: !!hecha, notas: '' }));
   const asigs = [['Regression and modeling with SAS', 3], ['Visualización de datos & reporting empresarial', 4.5], ['Data analytics with Google', 6], ['Sistemas de apoyo a la decisión (inglés)', 3], ['Emprendimiento tecnológico', 3], ['Tecnología Big Data II', 3], ['Marketing y estrategia de ventas', 6], ['Analítica de datos II: modelización avanzada y ML', 6], ['La cuestión de Dios', 5]]
     .map(([nombre, creditos], k) => ({ row: 18 + k, nombre, cuatri: '1º cuatri', creditos, examen: k === 5 ? addD(12) : k === 2 ? addD(40) : '', objetivo: 9, final: null, estado: 'Cursando', notas: '' }));
-  const certs = [['Microsoft DP-900 · Azure Data Fundamentals', 'DP-900', 12, 3, '2026-11-15', 'En curso', 13.5], ['Claude (Anthropic) · certificación', 'Claude', null, null, '2026-12-20', 'Pendiente', 0], ['SAS · Regression & Modeling', 'SAS', null, null, '2027-03-31', 'Pendiente', 0]]
-    .map(([nombre, codigo, total, hechos, objetivo, estado, horas], k) => ({ row: 7 + k, nombre, codigo, total, hechos, progreso: null, objetivo, examen: '', estado, horas, notas: k === 0 ? 'Primero: es la más corta.' : '' }));
+  let modRow = 5;
+  const mods = [['Statistics and Machine Learning', '2026-10-04', true], ['Fundamental Statistical Concepts', '2026-10-11', false], ['Explanatory Modeling Using Linear Regression', '2026-10-18', false], ['Predictive Modeling Using Logistic Regression', '2026-10-25', false], ['Statistical Foundations of Machine Learning', '2026-11-01', false]]
+    .map(([nombre, objetivo, hecho], k) => ({ row: modRow++, cert: 'SAS', orden: k + 1, nombre, objetivo, hecho, fechaHecho: hecho ? addD(-1) : '', notas: '' }));
+  const certs = [['SAS Certified Associate: Applied Statistics for ML', 'SAS', null, null, '2026-11-08', 'En curso', 2.5, '2026-11-23'], ['Microsoft DP-900 · Azure Data Fundamentals', 'DP-900', 12, 3, '2026-12-12', 'Pendiente', 13.5, ''], ['Claude (Anthropic) · certificación', 'Claude', null, null, '', 'Pendiente', 0, '']]
+    .map(([nombre, codigo, total, hechos, objetivo, estado, horas, examen], k) => ({ row: 7 + k, nombre, codigo, total, hechos, progreso: null, objetivo, examen, estado, horas, notas: k === 0 ? 'Práctica el 8 nov · examen 23 nov' : '', notebook: '' }));
+  const withMods = () => certs.map((c) => Object.assign(c, { modulos: mods.filter((m) => m.cert === c.codigo).sort((a, b) => a.orden - b.orden) }));
   const mk = (r0, list) => list.map(([tarea, fecha], k) => ({ row: r0 + k, tarea, fecha, estado: 'Pendiente', notas: '' }));
   const planP = mk(35, [['Actualizar CV (1 página, con proyectos y certificaciones)', '2026-10-31'], ['LinkedIn completo: foto, titular, extracto y certificaciones', '2026-11-15'], ['Lista de 15 empresas donde me gustaría hacer prácticas', '2026-12-15'], ['Enviar al menos 10 candidaturas', '2027-03-15']]);
   const cvL = mk(48, [['Certificación DP-900', '2026-11-15'], ['CV de 1 página actualizado', '2026-10-31'], ['Portfolio: 3 proyectos en GitHub', '2027-02-28']]);
   const soonT = (f) => tareas.filter((t) => !t.hecha && t.fecha && t.fecha <= addD(1)).sort((a, b) => (a.fecha < b.fecha ? -1 : 1));
-  const est = () => ({ ok: true, hoy: today, certs, asignaturas: asigs, plan: planP, cv: cvL, media: null, practicas: '2027-06-01', tareas: tareas.slice(), tipos: [] });
+  const est = () => ({ ok: true, hoy: today, certs: withMods(), asignaturas: asigs, plan: planP, cv: cvL, media: null, practicas: '2027-06-01', tareas: tareas.slice(), tipos: [] });
 
   const mondayOf = (f) => { const [y, m, d] = f.split('-').map(Number); const dt = new Date(y, m - 1, d); dt.setDate(dt.getDate() - ((dt.getDay() + 6) % 7)); return iso(dt); };
   let rrow = 5;
@@ -216,6 +220,9 @@ window.DemoAPI = (function () {
           medida: { mes: 'Oct 2026', mi: 0, fecha: '', peso: null, sentir: rv.sentir || null, notas: '' }, identidad: 'Soy una persona sana que se cuida, entrena y estudia para sacar lo mejor de sí misma, y ahorra para su futuro.' });
       }
       if (action === 'setMedida') { const sem = mondayOf(today); revs[sem] = Object.assign({}, revs[sem], { sentir: Number(p.fields.sentir) }); return res({ ok: true }); }
+      if (action === 'addModule') { mods.push({ row: modRow++, cert: p.cert, orden: mods.filter((m) => m.cert === p.cert).length + 1, nombre: p.nombre, objetivo: p.objetivo || '', hecho: false, fechaHecho: '', notas: p.notas || '' }); return res(est()); }
+      if (action === 'updateModule') { const m = mods.find((x) => x.row === Number(p.row)); if (!m) return res({ ok: false, error: 'Ese módulo ya no existe' }); Object.assign(m, p.fields); if ('hecho' in p.fields) m.fechaHecho = p.fields.hecho ? today : ''; return res(est()); }
+      if (action === 'deleteModule') { const k = mods.findIndex((x) => x.row === Number(p.row)); if (k >= 0) mods.splice(k, 1); return res(est()); }
       if (action === 'estudios') return res(est());
       if (action === 'addTask') { if (!String(p.tarea || '').trim()) return res({ ok: false, error: 'Escribe la tarea' }); const t = { row: tRow++, asignatura: p.asignatura || '', tarea: p.tarea, tipo: p.tipo, fecha: p.fecha || '', prioridad: p.prioridad, hecha: false, notas: p.notas || '' }; tareas.push(t); return res({ ok: true, row: t.row, tareas: tareas.slice() }); }
       if (action === 'updateTask') { const t = tareas.find((x) => x.row === Number(p.row)); if (!t) return res({ ok: false, error: 'Esa tarea ya no existe' }); Object.assign(t, p.fields); return res({ ok: true, tareas: tareas.slice() }); }

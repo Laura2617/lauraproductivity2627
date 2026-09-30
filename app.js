@@ -3,13 +3,13 @@
   'use strict';
   const CFG = window.CONFIG || {};
   const DEMO = !CFG.API_URL;
-  const APP_VERSION = '2.0 · fase 3 completa';
+  const APP_VERSION = '2.1 · módulos de certificaciones';
   const LS = { pin: 'l2627.pin', sound: 'l2627.sound', theme: 'l2627.theme' };
   const $ = (s, el) => (el || document).querySelector(s);
   const view = $('#view'), tabs = $('#tabs'), sheet = $('#sheet'), toastEl = $('#toast'), timerEl = $('#timer');
 
   const S = { pin: store('get', LS.pin), tab: 'hoy', fecha: null, today: null, meta: null, gym: null, gymMode: '60', gymRutina: null,
-    pending: 0, seq: 0, add: null, est: null, coc: null, cocTab: 'menu', recFilter: 'Todas', bib: null, bibTab: 'libros', des: null, desTab: 'pend', rev: null, revDraft: null, form: null, picker: null, din: null, dinCat: '', fix: null, prog: null, progHabit: null, progMonth: null, estFilter: 'Todas', estOpen: {}, task: null, sedit: null, timer: null, soundLocal: store('get', LS.sound) !== 'off' };
+    pending: 0, seq: 0, add: null, est: null, modOpen: {}, coc: null, cocTab: 'menu', recFilter: 'Todas', bib: null, bibTab: 'libros', des: null, desTab: 'pend', rev: null, revDraft: null, form: null, picker: null, din: null, dinCat: '', fix: null, prog: null, progHabit: null, progMonth: null, estFilter: 'Todas', estOpen: {}, task: null, sedit: null, timer: null, soundLocal: store('get', LS.sound) !== 'off' };
 
   // ─── Utilidades ──────────────────────────────────────────────
   function store(op, k, v) { try { if (op === 'get') return localStorage.getItem(k); if (op === 'set') localStorage.setItem(k, v); if (op === 'del') localStorage.removeItem(k); } catch (e) { return null; } return null; }
@@ -1001,16 +1001,28 @@
       }).join('')}</div></section>
       <section style="display:flex;flex-direction:column;gap:10px"><div class="section-title"><h2>Certificaciones</h2><span class="muted small">una a una</span></div>
         ${e.certs.map((c) => {
-          const p = c.total ? Math.min(1, (c.hechos || 0) / c.total) : null;
+          const mods = c.modulos || [];
+          const total = mods.length || c.total, hechos = mods.length ? mods.filter((m) => m.hecho).length : (c.hechos || 0);
+          const p = total ? Math.min(1, hechos / total) : null;
           const got = c.estado === '✅ Conseguida';
+          const col = subColor('Cert. ' + c.codigo);
+          const next = mods.find((m) => !m.hecho);
+          const open = S.modOpen && S.modOpen[c.row];
           return `<article class="card cert ${got ? 'got' : ''}">
-            <div class="row between" style="align-items:flex-start"><div style="min-width:0"><span class="tiny bold" style="color:${subColor('Cert. ' + c.codigo)}">${esc(c.codigo)}</span><h3>${esc(c.nombre)}</h3></div>
+            <div class="row between" style="align-items:flex-start"><div style="min-width:0"><span class="tiny bold" style="color:${col}">${esc(c.codigo)}</span><h3>${esc(c.nombre)}</h3></div>
               <button type="button" class="estado" data-e="sedit" data-kind="cert" data-row="${c.row}">${esc(c.estado || 'Pendiente')}</button></div>
-            ${got ? `<p class="small" style="margin:0">¡Conseguida! 🏅${c.examen ? ' · ' + shortDate(c.examen) : ''}</p>` : c.total ? `<div class="row" style="gap:10px"><div class="bar" style="flex:1"><i style="width:${p * 100}%;background:${subColor('Cert. ' + c.codigo)}"></i></div><span class="small bold">${Math.round(p * 100)}%</span></div>
-              <div class="row between"><div class="mini-step"><button type="button" data-e="cstep" data-row="${c.row}" data-d="-1" aria-label="Un módulo menos">−</button><span><b>${c.hechos || 0}</b> / ${c.total} módulos</span><button type="button" data-e="cstep" data-row="${c.row}" data-d="1" aria-label="Un módulo más">+</button></div>
-              <span class="small muted">${c.horas ? fmt(c.horas, 1) + ' h' : ''}</span></div>`
-              : `<button type="button" class="btn ghost slim" data-e="sedit" data-kind="cert" data-row="${c.row}">¿Cuántos módulos tiene? Ponlo aquí</button>`}
-            <div class="small muted">${c.examen ? 'Examen ' + shortDate(c.examen) : c.objetivo ? 'Objetivo: ' + shortDate(c.objetivo) : ''}${c.notas && !got ? ' · ' + esc(c.notas) : ''}</div>
+            ${got ? `<p class="small" style="margin:0">¡Conseguida! 🏅${c.examen ? ' · ' + shortDate(c.examen) : ''}</p>` : total ? `<div class="row" style="gap:10px"><div class="bar thick" style="flex:1"><i style="width:${p * 100}%;background:${col}"></i></div><span class="small bold">${Math.round(p * 100)}%</span></div>
+              <div class="row between">${mods.length ? `<span class="small"><b>${hechos}</b> de ${total} módulos${next ? ` · <span class="muted">sigue:</span> ${esc(next.nombre)}` : ' · ¡curso terminado! 🎉'}</span>`
+                : `<div class="mini-step"><button type="button" data-e="cstep" data-row="${c.row}" data-d="-1" aria-label="Un módulo menos">−</button><span><b>${hechos}</b> / ${total} módulos</span><button type="button" data-e="cstep" data-row="${c.row}" data-d="1" aria-label="Un módulo más">+</button></div>`}
+              <span class="small muted" style="white-space:nowrap">${c.horas ? fmt(c.horas, 1) + " h" : ""}</span></div>`
+              : `<button type="button" class="btn ghost slim" data-e="madd" data-code="${esc(c.codigo)}">+ Añadir el primer módulo</button>`}
+            <div class="small muted">${c.examen ? 'Examen ' + shortDate(c.examen) + (c.objetivo ? ' · objetivo curso: ' + shortDate(c.objetivo) : '') : c.objetivo ? 'Objetivo: ' + shortDate(c.objetivo) : ''}${c.notas && !got ? ' · ' + esc(c.notas) : ''}</div>
+            ${mods.length ? `<details class="mods" data-cert="${c.row}" ${open ? 'open' : ''}><summary><span class="bold small">${open ? 'Ocultar módulos' : 'Ver módulos'}</span>${icon('chev', 'chev')}</summary>
+              <div class="tlist">${mods.map((m) => { const late = !m.hecho && m.objetivo && m.objetivo < todayIso(); return `<div class="task ${m.hecho ? 'done' : ''}">
+                <button type="button" class="check sm ${m.hecho ? 'on' : ''}" style="${m.hecho ? `background:${col};border-color:${col}` : ''}" data-e="mdone" data-row="${m.row}" aria-pressed="${m.hecho}" aria-label="${m.hecho ? 'Desmarcar' : 'Marcar hecho'}: ${esc(m.nombre)}">${m.hecho ? icon('check') : ''}</button>
+                <button type="button" class="tbody" data-e="medit" data-row="${m.row}"><span class="tname"><span class="muted">${m.orden}.</span> ${esc(m.nombre)}</span>${m.notas ? `<span class="tsub">${esc(m.notas)}</span>` : ''}</button>
+                <span class="due ${late ? 'late' : ''}">${m.hecho ? (m.fechaHecho ? '✓ ' + shortDate(m.fechaHecho) : '✓') : m.objetivo ? shortDate(m.objetivo) : ''}</span></div>`; }).join('')}</div>
+              <button type="button" class="linkbtn" data-e="madd" data-code="${esc(c.codigo)}">+ Añadir módulo</button></details>` : ''}
             ${/^https:\/\//.test(c.notebook || '') ? `<a class="linkbtn" href="${esc(c.notebook)}" target="_blank" rel="noopener">📓 Abrir en NotebookLM ↗</a>` : ''}
           </article>`;
         }).join('')}</section>
@@ -1128,7 +1140,7 @@
     const e = S.est; if (!e) return;
     const it = (kind === 'asig' ? e.asignaturas : e.certs).find((x) => x.row === Number(row)); if (!it) return;
     S.sedit = kind === 'asig' ? { kind, row: it.row, notebook: it.notebook || '', nombre: it.nombre, examen: it.examen, objetivo: it.objetivo == null ? '' : String(it.objetivo), final: it.final == null ? '' : String(it.final), estado: it.estado || 'Cursando', busy: false }
-      : { kind, row: it.row, notebook: it.notebook || '', nombre: it.nombre, examen: it.examen, total: it.total == null ? '' : String(it.total), hechos: it.hechos == null ? '' : String(it.hechos), estado: it.estado || 'Pendiente', busy: false };
+      : { kind, row: it.row, notebook: it.notebook || '', nombre: it.nombre, nombreEdit: it.nombre, objetivo: it.objetivo || '', examen: it.examen, total: it.total == null ? '' : String(it.total), hechos: it.hechos == null ? '' : String(it.hechos), estado: it.estado || 'Pendiente', busy: false };
     sheet.hidden = false; renderStudy();
   }
   function renderStudy() {
@@ -1141,7 +1153,9 @@
       <div class="row between" style="align-items:flex-start"><div><span class="tiny bold" style="color:${subColor(s.kind === 'asig' ? s.nombre : 'Cert. ' + (S.est.certs.find((c) => c.row === s.row) || {}).codigo)}">${s.kind === 'asig' ? 'ASIGNATURA' : 'CERTIFICACIÓN'}</span><h2 style="font-size:22px">${esc(s.nombre)}</h2></div><button type="button" class="chip" data-s="close">Cerrar</button></div>
       <label class="field"><span class="small muted bold">Fecha del examen</span><input class="text-in" type="date" value="${esc(s.examen)}" data-sf="examen"></label>
       ${s.kind === 'asig' ? `<div class="row" style="gap:10px;align-items:flex-end">${num('objetivo', 'Nota objetivo', '9')}${num('final', 'Nota final', 'cuando la sepas')}</div>`
-        : `<div class="row" style="gap:10px;align-items:flex-end">${num('total', 'Módulos totales', 'p. ej. 12')}${num('hechos', 'Módulos hechos', '0')}</div>`}
+        : `<label class="field"><span class="small muted bold">Nombre</span><input class="text-in" type="text" value="${esc(s.nombreEdit)}" data-sf="nombreEdit" maxlength="120"></label>
+          <label class="field"><span class="small muted bold">Terminar el curso antes del</span><input class="text-in" type="date" value="${esc(s.objetivo)}" data-sf="objetivo"></label>
+          ${(S.est.certs.find((c) => c.row === s.row) || {}).modulos && (S.est.certs.find((c) => c.row === s.row).modulos.length) ? '<p class="small muted" style="margin:0">El progreso se calcula con tu lista de módulos.</p>' : `<div class="row" style="gap:10px;align-items:flex-end">${num('total', 'Módulos totales', 'p. ej. 12')}${num('hechos', 'Módulos hechos', '0')}</div>`}`}
       <div><div class="small muted bold" style="margin-bottom:8px">Estado</div><div class="chips">${estados.map((x) => `<button type="button" class="chip ${s.estado === x ? 'on' : ''}" data-s="estado" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div></div>
       <label class="field"><span class="small muted bold">📓 Enlace de NotebookLM</span><input class="text-in" type="text" value="${esc(s.notebook)}" data-sf="notebook" placeholder="https://notebooklm.google.com/notebook/…"></label>
       ${/^https:\/\//.test(s.notebook) ? `<a class="btn ghost slim" style="display:flex;align-items:center;justify-content:center;text-decoration:none" href="${esc(s.notebook)}" target="_blank" rel="noopener">Abrir en NotebookLM ↗</a>` : ''}
@@ -1157,7 +1171,8 @@
     if (a === 'estado') { s.estado = b.dataset.v; return renderStudy(); }
     if (a === 'newtask') { const n = s.nombre; closeAdd(); openTask(null); S.task.asignatura = n; return renderTask(); }
     if (a === 'save') {
-      const fields = s.kind === 'asig' ? { examen: s.examen, objetivo: s.objetivo, final: s.final, estado: s.estado, notebook: s.notebook.trim() } : { examen: s.examen, total: s.total, hechos: s.hechos, estado: s.estado, notebook: s.notebook.trim() };
+      const fields = s.kind === 'asig' ? { examen: s.examen, objetivo: s.objetivo, final: s.final, estado: s.estado, notebook: s.notebook.trim() } : { examen: s.examen, total: s.total, hechos: s.hechos, estado: s.estado, notebook: s.notebook.trim(), nombre: s.nombreEdit, objetivo: s.objetivo };
+      if (s.kind === 'cert' && (S.est.certs.find((c) => c.row === s.row) || {}).modulos && S.est.certs.find((c) => c.row === s.row).modulos.length) { delete fields.total; delete fields.hechos; }
       if (fields.notebook && !/^https:\/\//.test(fields.notebook)) return toast('El enlace de NotebookLM debe empezar por https://', true);
       for (const k of ['objetivo', 'final', 'total', 'hechos']) {
         if (k in fields && fields[k] !== '' && isNaN(Number(String(fields[k]).replace(',', '.')))) return toast('Revisa el número de "' + k + '"', true);
@@ -1181,6 +1196,39 @@
     if (a === 'tdone') return toggleTask(b.dataset.row);
     if (a === 'filter') { S.estFilter = b.dataset.v; return renderEstudios(); }
     if (a === 'sedit') return openStudy(b.dataset.kind, b.dataset.row);
+    if (a === 'mdone') {
+      const m = S.est.certs.flatMap((c) => c.modulos || []).find((x) => x.row === Number(b.dataset.row)); if (!m) return;
+      m.hecho = !m.hecho; m.fechaHecho = m.hecho ? todayIso() : '';
+      const c = S.est.certs.find((x) => x.codigo === m.cert);
+      S.modOpen = Object.assign({}, S.modOpen, { [c.row]: true }); renderEstudios();
+      const all = c && c.modulos.every((x) => x.hecho);
+      if (m.hecho) { if (all) { confetti(); toast('¡Curso terminado! Ahora, a por el examen 💪'); } else toast('Módulo ' + m.orden + ' hecho ✓'); }
+      try { S.est = await api('updateModule', { row: m.row, fields: { hecho: m.hecho } }); if (S.tab === 'estudios') renderEstudios(); }
+      catch (err) { toast(err.message, true); loadEstudios(true); }
+      return;
+    }
+    if (a === 'madd' || a === 'medit') {
+      const m = a === 'medit' ? S.est.certs.flatMap((c) => c.modulos || []).find((x) => x.row === Number(b.dataset.row)) : null;
+      const code = m ? m.cert : b.dataset.code;
+      const c = S.est.certs.find((x) => x.codigo === code);
+      if (c) S.modOpen = Object.assign({}, S.modOpen, { [c.row]: true });
+      return openForm({
+        kicker: 'CERTIFICACIÓN ' + code, title: m ? 'Módulo ' + m.orden : 'Nuevo módulo', focus: m ? null : 'nombre',
+        values: m ? { nombre: m.nombre, objetivo: m.objetivo, notas: m.notas } : { nombre: '', objetivo: '', notas: '' },
+        fields: [{ key: 'nombre', label: 'Nombre del módulo' }, { key: 'objetivo', label: 'Terminar antes del', type: 'date' }, { key: 'notas', label: 'Notas', placeholder: 'opcional: horas que te llevó, dudas…' }],
+        submit: m ? 'Guardar' : 'Añadir módulo',
+        actions: m ? [{ id: 'del', label: 'Borrar módulo', cls: 'danger' }] : [],
+        onSubmit: async (v) => {
+          if (!v.nombre.trim()) throw new Error('Escribe el nombre del módulo');
+          S.est = m ? await api('updateModule', { row: m.row, fields: v }) : await api('addModule', Object.assign({ cert: code }, v));
+          toast(m ? 'Guardado ✓' : 'Módulo añadido ✓'); if (S.tab === 'estudios') renderEstudios();
+        },
+        onAction: async (id) => {
+          if (id !== 'del' || !confirm('¿Borrar este módulo?')) return true;
+          S.est = await api('deleteModule', { row: m.row }); toast('Módulo borrado'); if (S.tab === 'estudios') renderEstudios();
+        }
+      });
+    }
     if (a === 'cstep') {
       const c = S.est.certs.find((x) => x.row === Number(b.dataset.row)); if (!c) return;
       c.hechos = Math.max(0, Math.min(c.total || 999, (c.hechos || 0) + Number(b.dataset.d)));
@@ -1202,7 +1250,13 @@
     }
   });
   view.addEventListener('toggle', (e) => {
-    const d = e.target; if (!d.classList || !d.classList.contains('checklist')) return;
+    const d = e.target;
+    if (d.classList && d.classList.contains('mods')) {
+      S.modOpen = Object.assign({}, S.modOpen, { [d.dataset.cert]: d.open });
+      const l = d.querySelector('summary .bold'); if (l) l.textContent = d.open ? 'Ocultar módulos' : 'Ver módulos';
+      return;
+    }
+    if (!d.classList || !d.classList.contains('checklist')) return;
     S.estOpen = Object.assign({}, S.estOpen, { [d.dataset.kind]: d.open });
     const hint = d.querySelector('summary .tiny'); if (hint) hint.textContent = d.open ? 'Toca para cerrar' : 'Toca para ver la lista';
   }, true);

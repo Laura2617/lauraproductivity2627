@@ -1,12 +1,13 @@
-/* Laura 26/27 · fase 2 (Hoy · Estudios · Añadir · Gym · Más · Visión) */
+/* Laura 26/27 · v3 (Hoy · Estudios · Gym · Dinero · Progreso · Más) */
 (function () {
   'use strict';
   const CFG = window.CONFIG || {};
   const DEMO = !CFG.API_URL;
-  const APP_VERSION = '2.1 · módulos de certificaciones';
+  const APP_VERSION = '3.0 · nuevo diseño';
   const LS = { pin: 'l2627.pin', sound: 'l2627.sound', theme: 'l2627.theme' };
   const $ = (s, el) => (el || document).querySelector(s);
-  const view = $('#view'), tabs = $('#tabs'), sheet = $('#sheet'), toastEl = $('#toast'), timerEl = $('#timer');
+  const view = $('#view'), tabs = $('#tabs'), sheet = $('#sheet'), toastEl = $('#toast'), timerEl = $('#timer'), fab = $('#fab');
+  const MAIN = ['hoy', 'estudios', 'gym', 'dinero', 'progreso'];
 
   const S = { pin: store('get', LS.pin), tab: 'hoy', fecha: null, today: null, meta: null, gym: null, gymMode: '60', gymRutina: null,
     pending: 0, seq: 0, add: null, est: null, modOpen: {}, coc: null, cocTab: 'menu', recFilter: 'Todas', bib: null, bibTab: 'libros', des: null, desTab: 'pend', rev: null, revDraft: null, form: null, picker: null, din: null, dinCat: '', fix: null, prog: null, progHabit: null, progMonth: null, estFilter: 'Todas', estOpen: {}, task: null, sedit: null, timer: null, soundLocal: store('get', LS.sound) !== 'off' };
@@ -31,6 +32,7 @@
     mas: 'M4 6h16 M4 12h16 M4 18h16', vision: 'M12 2l3 6 6 1-4.5 4.5 1 6.5-5.5-3-5.5 3 1-6.5L3 9l6-1z', close: 'M6 6l12 12 M18 6L6 18', check: 'M5 12l5 5 9-10', flame: 'M12 22c4 0 7-3 7-7 0-4-3-6-4-9-1 2-2 3-4 3 0-2 0-4-1-6-3 3-5 7-5 12 0 4 3 7 7 7z',
     warn: 'M12 3l10 18H2z M12 10v5 M12 18h.01', trophy: 'M8 4h8v5a4 4 0 0 1-8 0z M8 6H4v1a4 4 0 0 0 4 4 M16 6h4v1a4 4 0 0 1-4 4 M12 13v4 M8 20h8',
     chev: 'M9 6l6 6-6 6', trash: 'M4 7h16 M10 11v6 M14 11v6 M6 7l1 13h10l1-13 M9 7V4h6v3', clock: 'M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z M12 7v5l3 2',
+    dinero: 'M3 6.5h18v11H3z M3 10h18 M7 14.5h4', progreso: 'M5 20v-7 M12 20V5 M19 20v-11', grid: 'M5 5h5v5H5z M14 5h5v5h-5z M5 14h5v5H5z M14 14h5v5h-5z',
     estudios: 'M2 9l10-5 10 5-10 5z M6 11v5c3 2.5 9 2.5 12 0v-5 M22 9v6', sheet: 'M4 4h16v16H4z M4 10h16 M10 4v16', logout: 'M15 4h4v16h-4 M10 8l-4 4 4 4 M6 12h10', sound: 'M4 9v6h4l5 4V5L8 9z M17 9a4 4 0 0 1 0 6'
   };
   const icon = (k, cls) => `<svg class="i ${cls || ''}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICON[k]}"/></svg>`;
@@ -70,13 +72,13 @@
   // ─── Arranque ────────────────────────────────────────────────
   function start() {
     if (!S.pin) return renderLogin();
-    tabs.hidden = false; renderTabs(); go('hoy');
-    setTimeout(maybeSplash, 1500);
+    tabs.hidden = false; go('hoy');
+    setTimeout(warmVision, 1200);
   }
-  function logout(msg) { store('del', LS.pin); S.pin = null; tabs.hidden = true; renderLogin(msg); }
+  function logout(msg) { store('del', LS.pin); S.pin = null; tabs.hidden = true; fab.hidden = true; renderLogin(msg); }
 
   function renderLogin(msg) {
-    tabs.hidden = true; let pin = '';
+    tabs.hidden = true; fab.hidden = true; let pin = '';
     const draw = (err) => {
       view.innerHTML = `<section class="login">
         <div class="logo">26/27</div>
@@ -103,16 +105,51 @@
   }
 
   function renderTabs() {
-    const t = [['hoy', 'Hoy'], ['estudios', 'Estudios'], ['add', ''], ['gym', 'Gym'], ['mas', 'Más']];
-    const cur = ['vision', 'dinero', 'progreso', 'recetas', 'biblioteca', 'deseos', 'revision'].includes(S.tab) ? 'mas' : S.tab;
-    tabs.innerHTML = t.map(([k, l]) => k === 'add'
-      ? `<button type="button" class="add" data-tab="add" aria-label="Añadir">${icon('plus')}</button>`
-      : `<button type="button" data-tab="${k}" class="${cur === k ? 'on' : ''}">${icon(k)}<span>${l}</span></button>`).join('');
+    const t = [['hoy', 'Hoy'], ['estudios', 'Estudios'], ['gym', 'Gym'], ['dinero', 'Dinero'], ['progreso', 'Progreso']];
+    tabs.innerHTML = t.map(([k, l]) => `<button type="button" data-tab="${k}" class="${S.tab === k ? 'on' : ''}" ${S.tab === k ? 'aria-current="page"' : ''}>${icon(k)}<span>${l}</span></button>`).join('');
+    fab.hidden = !S.pin || ['gym', 'vision'].includes(S.tab);
   }
+  fab.innerHTML = icon('plus');
+  fab.addEventListener('click', () => { unlockAudio(); openAdd(); });
+  // Botón "Más" arriba a la derecha en las pestañas principales
+  // y foto de tu visión como cabecera
+  new MutationObserver(() => {
+    if (!MAIN.includes(S.tab)) { view.classList.remove('has-hero'); return; }
+    const h = view.querySelector('.head'); if (!h || h.querySelector('.avatar')) return;
+    h.insertAdjacentHTML('beforeend', `<button type="button" class="avatar" data-go="mas" aria-label="Más secciones y ajustes">${icon('grid')}</button>`);
+    paintHero();
+  }).observe(view, { childList: true });
+  const HERO_AREAS = { estudios: ['Estudios', 'Carrera', 'Empleable'], gym: ['Cuerpo'], dinero: ['Canadá', 'Sueños'], progreso: ['Disfrutar', 'Sueños', 'Cuerpo'] };
+  function visionCache() { if (S.vision) return S.vision; try { return JSON.parse(store('get', 'l2627.vision') || 'null'); } catch (e) { return null; } }
+  function heroId(tab) {
+    if (store('get', 'l2627.hero') === 'off') return null;
+    const v = visionCache(); if (!v) return null;
+    const want = HERO_AREAS[tab];
+    let pool = [];
+    (v.cards || []).forEach((c) => { if (!want || want.includes(c.area)) pool = pool.concat(c.images || []); });
+    if (!pool.length) (v.cards || []).forEach((c) => { pool = pool.concat(c.images || []); });
+    if (!pool.length) return null;
+    const seed = Array.from(todayIso() + tab).reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7);
+    return pool[seed % pool.length];
+  }
+  function paintHero() {
+    const id = heroId(S.tab);
+    if (!id) { view.classList.remove('has-hero'); return; }
+    view.classList.add('has-hero');
+    view.insertAdjacentHTML('afterbegin', '<div class="hero-bg" aria-hidden="true"></div>');
+    const el = view.firstElementChild;
+    if (imgURLs[id]) { el.style.backgroundImage = `url("${imgURLs[id]}")`; el.classList.add('loaded', 'instant'); return; }
+    imgURL(id).then((u) => { el.style.backgroundImage = `url("${u}")`; el.classList.add('loaded'); }).catch(() => { el.remove(); });
+  }
+  async function warmVision() {
+    if (visionCache() || !S.pin) return;
+    try { S.vision = await api('vision'); store('set', 'l2627.vision', JSON.stringify(S.vision)); if (MAIN.includes(S.tab)) { const h = view.querySelector('.head .avatar'); if (h && !view.querySelector('.hero-bg')) paintHero(); } } catch (e) { /* sin fotos */ }
+  }
+  document.addEventListener('click', (e) => { const b = e.target.closest('[data-go]'); if (b) go(b.dataset.go); });
   tabs.addEventListener('click', (e) => {
     const b = e.target.closest('[data-tab]'); if (!b) return;
     unlockAudio();
-    if (b.dataset.tab === 'add') return openAdd();
+    if (b.dataset.tab === S.tab) { window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
     go(b.dataset.tab);
   });
   function go(tab) {
@@ -136,7 +173,7 @@
     if (!S.fecha) S.fecha = todayIso();
     if (!silent || !S.today) skeleton();
     try { S.today = await api('today', { fecha: S.fecha }); if (S.tab === 'hoy') renderToday(); }
-    catch (e) { if (S.tab === 'hoy') view.innerHTML = errBox(e.message, 'reload-today'); }
+    catch (e) { if (S.tab === 'hoy' && S.pin) view.innerHTML = errBox(e.message, 'reload-today'); }
   }
   function errBox(msg, act) { return `<div class="card"><p class="bold">No se ha podido cargar</p><p class="muted small">${esc(msg)}</p><button type="button" class="btn" data-act="${act}">Reintentar</button></div>`; }
 
@@ -152,88 +189,147 @@
   const STEP = { 2: 5, 7: 0.5, 8: 5, 9: 1, 10: 500 };
   const UNIT = { 2: 'min', 7: 'h', 8: 'min', 9: 'págs', 10: 'pasos' };
 
+  const NUM_ORDER = [7, 10, 8, 9, 2];
+  const NUM_LABEL = { 7: 'Sueño', 10: 'Pasos', 8: 'Móvil', 9: 'Páginas', 2: 'Curso' };
+  const ringSvg = (pct, cls, size, sw) => { const r = (size - sw) / 2, C = 2 * Math.PI * r; return `<svg viewBox="0 0 ${size} ${size}" aria-hidden="true"><circle class="track" cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke-width="${sw}"/><circle class="bar ${cls || ''}" cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - Math.max(0, Math.min(1, pct)))}"/></svg>`; };
+  function numVal(h) {
+    const v = h.value;
+    if (v == null || v === '') return '–';
+    if (h.i === 7) return fmt(v, 1) + ' h';
+    if (h.i === 8 || h.i === 2) return fmt(v, 0) + ' min';
+    return fmt(v, 0);
+  }
+  function numPct(h) {
+    const v = h.value; if (v == null || v === '' || !h.meta) return 0;
+    return Number(v) / h.meta;
+  }
+
   function renderToday() {
     const t = S.today; if (!t) return;
     const isToday = S.fecha === todayIso();
     const daily = t.habits.filter((h) => h.freq === 'Diario' && h.activo);
     const checks = daily.filter((h) => h.type === 'Sí/No');
-    const nums = daily.filter((h) => h.type !== 'Sí/No');
+    const nums = daily.filter((h) => h.type !== 'Sí/No').sort((x, y) => (NUM_ORDER.indexOf(x.i) + 99) % 99 - (NUM_ORDER.indexOf(y.i) + 99) % 99);
     const weekly = t.habits.filter((h) => h.freq !== 'Diario' && h.activo);
-    const lvl2 = t.habits.filter((h) => !h.activo && h.freq === 'Diario');
+    const lvl2 = t.habits.filter((h) => !h.activo && h.freq === 'Diario' && !/hábito extra/i.test(h.name));
     const doneN = daily.filter((h) => h.done).length;
-    const C = 2 * Math.PI * 34, off = C * (1 - t.pct);
+    const checksDone = checks.filter((h) => h.done).length;
+    const g = t.gym || {};
     const gymDef = t.habits.find((h) => h.i === 11) || {};
-    const curso = t.habits.find((h) => h.i === 2) || {};
+    const agenda = (t.agenda || []).filter((a) => a.tipo !== 'Rutina');
     const left = `
       ${DEMO ? '<div class="demo-banner">Modo demo: los datos son de ejemplo y no se guardan.</div>' : ''}
       <header class="head">
         <div>
           <div class="datenav">
             <button type="button" data-act="day" data-d="-1" aria-label="Día anterior">‹</button>
-            <span>${esc(cap(niceDate(S.fecha)))}</span>
+            <span>${esc(niceDate(S.fecha))}</span>
             <button type="button" data-act="day" data-d="1" aria-label="Día siguiente" ${isToday ? 'disabled' : ''}>›</button>
           </div>
-          <h1>${isToday ? 'Hola, ' + esc(t.nombre || 'Laura') : 'Editando otro día'}</h1>
+          <h1>${isToday ? 'Hoy' : 'Otro día'}</h1>
         </div>
-        ${t.bestStreak && t.bestStreak.days ? `<span class="pill flame" title="${esc(labelOf(t.bestStreak.name))}">${icon('flame')}${t.bestStreak.days} días</span>` : ''}
       </header>
-      ${t.frase && t.frase.text ? `<section class="quote"><span class="kicker">Frase del día</span><p>“${esc(t.frase.text)}”</p><span class="src">${esc(t.frase.autor)}</span></section>` : ''}
-      <section class="card ring-card tap" data-act="goprog" role="button" tabindex="0" aria-label="Ver tu progreso">
-        <div class="ring"><svg viewBox="0 0 84 84"><circle class="track" cx="42" cy="42" r="34" fill="none" stroke-width="10"/><circle class="bar" cx="42" cy="42" r="34" fill="none" stroke-width="10" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${off}"/></svg><span>${Math.round(t.pct * 100)}%</span></div>
-        <div><div class="bold" style="font-size:17px">${doneN} de ${daily.length} hábitos</div><div class="muted small" style="margin-top:4px">${t.pct >= 1 ? '¡Día completo! Has votado por quien quieres ser.' : 'Cada ✓ es un voto por la persona que quieres ser.'}</div></div>
+      <section class="card summary">
+        <button type="button" class="sum-top tap" data-act="goprog" aria-label="Ver tu progreso">
+          <span class="ring big ${t.pct >= 1 ? 'full' : ''}">${ringSvg(t.pct, t.pct >= 1 ? 'ok' : '', 76, 9)}<b>${Math.round(t.pct * 100)}%</b></span>
+          <span class="sum-txt"><span class="sum-n">${doneN} de ${daily.length}</span><span class="small muted">${t.pct >= 1 ? '¡Día completo! 🎉' : 'hábitos de hoy'}</span></span>
+          ${t.bestStreak && t.bestStreak.days ? `<span class="pill flame" title="${esc(labelOf(t.bestStreak.name))}">${icon('flame')}${t.bestStreak.days}</span>` : ''}
+        </button>
+        ${nums.length ? `<div class="mrings">${nums.map((h) => {
+          const p = numPct(h), over = h.type === 'Número ≤' && Number(h.value) > h.meta;
+          return `<button type="button" class="mring" data-act="numedit" data-i="${h.i}" aria-label="${esc(NUM_LABEL[h.i] || labelOf(h.name))}: ${esc(numVal(h))}. Toca para cambiarlo">
+            <span class="ring sm">${ringSvg(over ? 1 : p, over ? 'bad' : h.done ? 'ok' : '', 48, 6)}<i>${esc(emojiOf(h.name))}</i></span>
+            <b>${esc(numVal(h))}</b><span>${esc(NUM_LABEL[h.i] || labelOf(h.name))}</span></button>`;
+        }).join('')}</div>` : ''}
       </section>
-      ${t.failedYesterday && t.failedYesterday.length && isToday ? `<section class="alert">${icon('warn')}<div><b>Nunca falles dos veces</b><span class="small">Ayer se quedó sin hacer: ${esc(t.failedYesterday.map(labelOf).join(', '))}. Hoy, aunque sea la versión de 2 minutos.</span></div></section>` : ''}
-      <section style="display:flex;flex-direction:column;gap:10px">
-        <div class="section-title"><h2>Núcleo diario</h2><span class="muted small">toca para marcar</span></div>
-        ${checks.map((h) => habitRow(h, t)).join('')}
+      ${isToday && new Date().getDay() === 0 ? `<button type="button" class="banner tap" data-act="gorev"><span style="font-size:22px">🔁</span><span style="flex:1"><b>Hoy toca revisión semanal</b><span class="small muted">10 minutos para cerrar la semana</span></span>${icon('chev', 'chev')}</button>` : ''}
+      <section class="group">
+        <div class="section-title"><h2>Agenda</h2>${isToday ? '' : ''}</div>
+        <div class="card glist">
+          ${(() => {
+            const gymPill = `<span class="go-pill">${gymDef.value || gymDef.done ? 'Hecho ✓' : 'Empezar'}</span>`;
+            const gymSub = g.rutina ? `${g.ejercicios} ejercicios · ${gymDef.count || g.semana || 0} de ${gymDef.veces || g.meta || 4} esta semana` : '';
+            const rows = agenda.map((a) => a.tipo === 'Gym' && g.rutina
+              ? `<button type="button" class="ag-row tap" data-act="gogym"><span class="ag-t">${esc(a.inicio)}</span><span class="ag-ln" style="background:${agColor(a.tipo)}"></span><span class="ag-b"><b>${esc(a.actividad)}</b><span class="small muted">${gymSub}</span></span>${gymPill}</button>`
+              : `<div class="ag-row"><span class="ag-t">${esc(a.inicio)}</span><span class="ag-ln" style="background:${agColor(a.tipo)}"></span><span class="ag-b"><b>${esc(a.actividad)}</b><span class="small muted">${esc(a.inicio)}–${esc(a.fin)}${a.notas ? ' · ' + esc(a.notas) : ''}</span></span></div>`);
+            if (g.rutina && !agenda.some((a) => a.tipo === 'Gym')) rows.unshift(`<button type="button" class="ag-row tap" data-act="gogym"><span class="ag-t">Gym</span><span class="ag-ln" style="background:var(--teal-2)"></span><span class="ag-b"><b>${esc(g.rutina)}</b><span class="small muted">${gymSub}</span></span>${gymPill}</button>`);
+            return rows.join('');
+          })()}
+          ${!g.rutina && !agenda.length ? '<p class="small muted" style="margin:12px 0">Nada en la agenda. Día libre. ☀️</p>' : ''}
+        </div>
       </section>
       ${tasksCard(t)}`;
     const right = `
-      <section style="display:flex;flex-direction:column;gap:10px">
-        <div class="section-title"><h2>Tus números</h2><span class="muted small">Polar = automático</span></div>
-        <div class="nums">${nums.map(numCard).join('')}</div>
-        ${curso.value > 0 ? `<div class="card" style="padding:12px 14px"><div class="small muted" style="margin-bottom:8px">¿Qué curso has hecho hoy?</div><div class="chips">${['DP-900', 'Claude', 'SAS', 'Otro'].map((c) => `<button type="button" class="chip blue ${t.curso === c ? 'on' : ''}" data-act="curso" data-v="${c}">${c}</button>`).join('')}</div></div>` : ''}
+      ${t.failedYesterday && t.failedYesterday.length && isToday ? `<div class="banner warnb">${icon('warn')}<span style="flex:1"><b>Nunca falles dos veces</b><span class="small">Ayer se quedó sin hacer: ${esc(t.failedYesterday.map(labelOf).join(', '))}</span></span></div>` : ''}
+      <section class="group">
+        <div class="section-title"><h2>Hábitos</h2><span class="muted small">${checksDone} de ${checks.length}</span></div>
+        <div class="card glist">${checks.map((h) => habitRow(h, t)).join('')}</div>
       </section>
-      ${gymCard(t, gymDef)}
-      <section style="display:flex;flex-direction:column;gap:10px">
-        <div class="section-title"><h2>Esta semana</h2><span class="muted small">márcalo el día que lo hagas</span></div>
-        ${weekly.filter((h) => h.i !== 11).map((h) => habitRow(h, t, true)).join('')}
-      </section>
-      ${isToday && new Date().getDay() === 0 ? `<section class="card sunday tap" data-act="gorev" role="button" tabindex="0"><span style="font-size:26px">🔁</span><div style="flex:1"><div class="bold">Hoy toca revisión semanal</div><div class="small muted">10 minutos · y copias el resumen para Claude</div></div>${icon('chev')}</section>` : ''}
-      ${Array.isArray(t.menuHoy) && t.menuHoy.length ? `<section class="card tap" data-act="gorec" role="button" tabindex="0"><div class="kicker" style="margin-bottom:6px">🍽 Hoy comes</div>${t.menuHoy.map((m) => `<div class="small" style="margin:3px 0"><span class="muted">${esc(m.momento)}:</span> <b>${esc(m.receta)}</b></div>`).join('')}</section>` : ''}
-      ${t.agenda && t.agenda.length ? `<section class="card agenda"><div class="kicker" style="margin-bottom:8px">Tu día</div>${t.agenda.map((a) => `<div class="it"><span class="t">${esc(a.inicio)}</span><span class="ln" style="background:${agColor(a.tipo)}"></span><div><div class="bold" style="font-size:15px">${esc(a.actividad)}</div><div class="small muted">${esc(a.inicio)}–${esc(a.fin)}${a.notas ? ' · ' + esc(a.notas) : ''}</div></div></div>`).join('')}</section>` : ''}
-      <section class="money tap" data-act="godin" role="button" tabindex="0" aria-label="Ver tu dinero"><div><span class="small">Gastado ${isToday ? 'hoy' : 'ese día'}</span><b>${eur(t.money.gastadoHoy)}</b></div><div style="text-align:right"><span class="small">Te queda este mes</span><b>${eur(t.money.queda)}</b></div></section>
-      ${lvl2.length ? `<details class="level2 card"><summary class="row between"><span><b>Nivel 2</b> <span class="muted small">· puedes marcarlos, no cuentan en tu %</span></span>${icon('chev', 'chev')}</summary><div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">${lvl2.map((h) => habitRow(h, t)).join('')}</div></details>` : ''}`;
+      ${weekly.length ? `<section class="group">
+        <div class="section-title"><h2>Esta semana</h2></div>
+        <div class="card glist">${weekly.map((h) => habitRow(h, t, true)).join('')}</div>
+      </section>` : ''}
+      ${lvl2.length ? `<details class="level2 group"><summary class="section-title"><h2>Extra</h2><span class="muted small">no cuentan en tu % ${icon('chev', 'chev')}</span></summary><div class="card glist">${lvl2.map((h) => habitRow(h, t)).join('')}</div></details>` : ''}
+      ${t.frase && t.frase.text ? `<p class="frase">“${esc(t.frase.text)}”${t.frase.autor ? `<span>${esc(t.frase.autor)}</span>` : ''}</p>` : ''}`;
     view.innerHTML = `<div class="cols"><div>${left}</div><div>${right}</div></div>`;
   }
-  function agColor(tipo) { return ({ Clase: '#2456E6', Estudio: '#6D4AFF', 'Certificación': '#8B5CF6', Gym: '#14B8A6', Deporte: '#E8A317', Curso: '#0EA5E9', Comida: '#F59E0B', Rutina: '#94A3B8' })[tipo] || '#94A3B8'; }
+  function agColor(tipo) { return ({ Clase: '#2343C4', Estudio: '#5856D6', 'Certificación': '#AF52DE', Gym: '#30B0C7', Deporte: '#FF9500', Curso: '#32ADE6', Comida: '#FFCC00', Rutina: '#8E8E93' })[tipo] || '#8E8E93'; }
   function habitRow(h, t, weekly) {
     let sub = '';
-    if (h.i === 6) sub = `Objetivo ${esc(t.wakeTarget || '')}${t.despertar ? ' · Polar: ' + esc(t.despertar) : ' · se marca con tu Polar'}`;
-    else if (weekly) sub = h.freq === 'Semanal' ? `Esta semana: ${h.count}/${h.veces}` : `Este mes: ${h.count}/${h.veces}`;
-    else if (h.done && h.streak) sub = `Racha ${h.streak} ${h.streak === 1 ? 'día' : 'días'}`;
-    else if (h.streak) sub = `Racha ${h.streak} · márcalo para mantenerla`;
-    else sub = h.mini ? 'Versión 2 min: ' + h.mini : 'Empieza hoy tu racha';
+    if (h.i === 6) sub = `Objetivo ${esc(t.wakeTarget || '')}${t.despertar ? ' · Polar: ' + esc(t.despertar) : ' · con tu Polar'}`;
+    else if (weekly) sub = h.freq === 'Semanal' ? `${h.count} de ${h.veces} esta semana` : `${h.count} de ${h.veces} este mes`;
+    else if (h.streak) sub = `🔥 ${h.streak} ${h.streak === 1 ? 'día' : 'días'}`;
     const miss = !h.done && h.yesterday === false && h.freq === 'Diario' && h.activo;
     return `<div class="habit ${h.done ? 'done' : ''} ${miss ? 'miss' : ''}">
-      <div class="ico" aria-hidden="true">${esc(emojiOf(h.name))}</div>
-      <div class="txt"><span class="name">${esc(labelOf(h.name))}</span><span class="sub">${sub}</span></div>
+      <span class="ico" aria-hidden="true">${esc(emojiOf(h.name))}</span>
+      <span class="txt"><span class="name">${esc(labelOf(h.name))}</span>${sub ? `<span class="sub">${sub}</span>` : ''}</span>
       <button type="button" class="check ${h.value ? 'on' : ''}" data-act="toggle" data-i="${h.i}" aria-pressed="${h.value ? 'true' : 'false'}" aria-label="${h.value ? 'Desmarcar' : 'Marcar'} ${esc(labelOf(h.name))}">${h.value ? icon('check') : ''}</button>
     </div>`;
   }
-  function numCard(h) {
-    const v = h.value == null ? '' : h.value;
-    const meta = h.type === 'Número ≤' ? 'máx. ' + fmt(h.meta, 0) : 'meta ' + fmt(h.meta, 1);
-    let pct = 0;
-    if (v !== '') pct = h.type === 'Número ≤' ? (Number(v) <= h.meta ? 100 : Math.max(0, 100 - (Number(v) - h.meta) / h.meta * 100)) : Math.min(100, Number(v) / h.meta * 100);
-    const polar = h.i === 7 || h.i === 10;
-    return `<div class="num"><div class="top"><span>${esc(emojiOf(h.name))} ${esc(labelOf(h.name).replace(/\s*\(.*\)/, ''))}</span>${polar ? '<span class="badge">Polar</span>' : `<span class="meta">${meta}</span>`}</div>
-      <div class="ctl"><button type="button" data-act="step" data-i="${h.i}" data-d="-1" aria-label="Restar">−</button>
-      <input type="number" inputmode="decimal" step="any" value="${v === '' ? '' : v}" data-act="numin" data-i="${h.i}" aria-label="${esc(labelOf(h.name))}" placeholder="–">
-      <button type="button" data-act="step" data-i="${h.i}" data-d="1" aria-label="Sumar">+</button></div>
-      <div class="unit">${UNIT[h.i] || ''}${polar ? ' · ' + meta : ''}</div>
-      <div class="bar ${h.done ? 'ok' : ''}"><i style="width:${pct}%"></i></div></div>`;
+  // Editar un número del día (hoja inferior)
+  function openNum(i) {
+    const h = S.today.habits.find((x) => x.i === i); if (!h) return;
+    S.num = { i, value: h.value == null || h.value === '' ? '' : h.value };
+    sheet.hidden = false; renderNum();
   }
+  function renderNum() {
+    const n = S.num; if (!n) return;
+    const h = S.today.habits.find((x) => x.i === n.i);
+    const polar = h.i === 7 || h.i === 10;
+    const meta = h.type === 'Número ≤' ? 'Máximo ' + fmt(h.meta, 0) : 'Meta ' + fmt(h.meta, 1);
+    sheet.innerHTML = `<div class="sheet${enterCls()}" role="dialog" aria-modal="true" aria-label="${esc(labelOf(h.name))}">
+      <div class="grab"></div>
+      <div class="row between"><h2 style="font-size:22px">${esc(emojiOf(h.name))} ${esc(labelOf(h.name))}</h2><button type="button" class="chip" data-n="close">Cerrar</button></div>
+      <div class="bigstep"><button type="button" data-n="step" data-d="-1" aria-label="Restar">−</button>
+        <label><input type="number" inputmode="decimal" step="any" value="${esc(n.value)}" data-n="in" placeholder="–" aria-label="Valor"><span>${UNIT[h.i] || ''}</span></label>
+        <button type="button" data-n="step" data-d="1" aria-label="Sumar">+</button></div>
+      <p class="small muted" style="text-align:center;margin:0">${meta} ${UNIT[h.i] || ''}${polar ? ' · llega solo desde tu Polar' : ''}</p>
+      ${h.i === 2 ? `<div class="field"><span class="small muted bold">¿Qué curso?</span><div class="chips">${['DP-900', 'Claude', 'SAS', 'Otro'].map((c) => `<button type="button" class="chip blue ${S.today.curso === c ? 'on' : ''}" data-n="curso" data-v="${c}">${c}</button>`).join('')}</div></div>` : ''}
+      <button type="button" class="btn" data-n="save">Guardar</button>
+    </div>`;
+  }
+  sheet.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-n]'); if (!b || !S.num) return;
+    const n = S.num, a = b.dataset.n;
+    if (a === 'close') { S.num = null; return closeAdd(); }
+    if (a === 'step') {
+      const step = STEP[n.i] || 1, dir = Number(b.dataset.d);
+      if (n.value === '' || n.value == null) n.value = dir > 0 ? ({ 7: 7, 10: 5000, 8: 60 })[n.i] || step : 0;
+      else n.value = Math.max(0, Math.round((Number(n.value) + step * dir) * 100) / 100);
+      return renderNum();
+    }
+    if (a === 'curso') { S.today.curso = b.dataset.v; save('setField', { fecha: S.fecha, field: 'curso', value: b.dataset.v }); return renderNum(); }
+    if (a === 'save') {
+      const inp = sheet.querySelector('[data-n="in"]');
+      const raw = inp ? String(inp.value).replace(',', '.') : n.value;
+      const v = raw === '' ? null : Number(raw);
+      const h = S.today.habits.find((x) => x.i === n.i);
+      h.value = v; h.done = habitDone(h); recomputePct(S.today);
+      S.num = null; closeAdd(); renderToday();
+      save('setHabit', { fecha: S.fecha, i: h.i, value: v });
+    }
+  });
+  sheet.addEventListener('input', (e) => { if (e.target.dataset.n === 'in' && S.num) S.num.value = e.target.value; });
   function gymCard(t, gymDef) {
     const g = t.gym || {};
     const n = gymDef.count || g.semana || 0, meta = gymDef.veces || g.meta || 4;
@@ -259,6 +355,7 @@
     if (act === 'godin') return go('dinero');
     if (act === 'gorev') return go('revision');
     if (act === 'gorec') return go('recetas');
+    if (act === 'numedit') return openNum(Number(b.dataset.i));
     if (act === 'toggle') {
       const h = S.today.habits.find((x) => x.i === Number(b.dataset.i)); if (!h) return;
       h.value = !h.value; h.done = habitDone(h);
@@ -309,7 +406,7 @@
       S.gym = await api('gymPlan', { fecha: todayIso(), rutina: rutina || S.gymRutina || undefined });
       S.gymRutina = S.gym.rutina;
       prepGym(); if (S.tab === 'gym') renderGym();
-    } catch (e) { if (S.tab === 'gym') view.innerHTML = errBox(e.message, 'reload-gym'); }
+    } catch (e) { if (S.tab === 'gym' && S.pin) view.innerHTML = errBox(e.message, 'reload-gym'); }
   }
   function nSeries(ex) {
     if (S.gymMode === 'cansada') return Math.max(1, ex.series - 1);
@@ -500,7 +597,7 @@
     if (!S.meta) { try { S.meta = await api('meta'); renderAdd(); } catch (e) { toast(e.message, true); } }
   }
   function enterCls() { return sheet.children.length ? '' : ' enter'; }
-  function closeAdd() { sheet.hidden = true; sheet.innerHTML = ''; S.add = null; S.task = null; S.sedit = null; S.fix = null; S.form = null; S.picker = null; }
+  function closeAdd() { sheet.hidden = true; sheet.innerHTML = ''; S.add = null; S.task = null; S.sedit = null; S.fix = null; S.form = null; S.picker = null; S.num = null; }
   function renderAdd() {
     const a = S.add; if (!a) return;
     const m = S.meta;
@@ -559,7 +656,7 @@
   async function loadMas() {
     skeleton();
     try { S.meta = await api('meta'); if (S.tab === 'mas') renderMas(); }
-    catch (e) { if (S.tab === 'mas') view.innerHTML = errBox(e.message, 'reload-mas'); }
+    catch (e) { if (S.tab === 'mas' && S.pin) view.innerHTML = errBox(e.message, 'reload-mas'); }
   }
   function renderMas() {
     const m = S.meta || { recientes: [], saldos: {} };
@@ -567,19 +664,11 @@
     let vis = S.vision; if (!vis) { try { vis = JSON.parse(store('get', 'l2627.vision') || 'null'); } catch (e) { vis = null; } }
     const vImg = vis && (vis.cards || []).map((c) => c.images && c.images[0]).find(Boolean);
     view.innerHTML = `<header class="head"><h1>Más</h1></header>
-      <div class="tiles">${[['dinero', '💶', 'Dinero', eur(m.saldos && m.saldos.total)], ['progreso', '📈', 'Progreso', 'rachas y medallas'], ['recetas', '🍳', 'Recetas', 'menú y lista de la compra'],
-        ['biblioteca', '📚', 'Biblioteca', 'libros y podcasts'], ['deseos', '🛍️', 'Me gustaría comprar', 'regla de las 48 h'], ['revision', '🔁', 'Revisión semanal', 'y resumen para Claude']]
-        .map(([k, e, t, sub]) => `<button type="button" class="tile" data-m="${k}"><span class="te">${e}</span><span class="tt">${t}</span><span class="ts">${sub}</span></button>`).join('')}</div>
       <button type="button" class="vtile" data-m="vision"><span class="vimg" ${vImg ? `data-img="${esc(vImg)}"` : ''}></span><span class="vtile-txt"><span class="tiny bold">MI VISIÓN</span><span class="vfrase">Mis metas y mis fotos</span></span>${icon('chev')}</button>
       <div class="cols"><div>
-      <section class="card"><div class="kicker" style="margin-bottom:10px">Tu dinero hoy</div>
-        <div class="list">${['Efectivo', 'Cuenta gastos', 'Cuenta ahorro', 'Hucha Canadá'].map((k) => `<div class="li"><span style="flex:1">${k}</span><b>${eur(s[k])}</b></div>`).join('')}
-        <div class="li"><span style="flex:1" class="bold">Total</span><b>${eur(s.total)}</b></div>
-        <div class="li"><span style="flex:1">Meses de colchón</span><b>${s.colchon != null ? fmt(s.colchon, 1) : '–'}</b></div></div></section>
-      <section class="card"><div class="kicker" style="margin-bottom:6px">Últimos movimientos</div>
-        <div class="list">${(m.recientes || []).map((r) => `<div class="li"><div style="flex:1;min-width:0"><div class="bold" style="font-size:15px">${esc(r.concepto)}</div><div class="small muted">${shortDate(r.fecha)} · ${esc(r.cuenta)}${r.destino ? ' → ' + esc(r.destino) : ''} · ${esc(r.categoria)}</div></div>
-          <b style="color:${r.tipo === 'Ingreso' ? 'var(--green)' : 'inherit'}">${r.tipo === 'Ingreso' ? '+' : r.tipo === 'Gasto' ? '−' : ''}${eur(r.importe)}</b>
-          <button type="button" class="icon-btn" data-m="del" data-row="${r.row}" aria-label="Borrar ${esc(r.concepto)}">${icon('trash')}</button></div>`).join('') || '<p class="small muted">Todavía no hay movimientos.</p>'}</div></section>
+      <section class="group"><div class="card glist">${[['recetas', '🍳', 'Recetas', 'Menú y lista de la compra', '#FF9500'], ['biblioteca', '📚', 'Biblioteca', 'Libros y podcasts', '#AF52DE'],
+        ['deseos', '🛍️', 'Me gustaría comprar', 'Regla de las 48 horas', '#FF2D55'], ['revision', '🔁', 'Revisión semanal', 'Y resumen para Claude', '#2343C4']]
+        .map(([k, e, t, sub, c]) => `<button type="button" class="navrow" data-m="${k}"><span class="nav-ico" style="--c:${c}">${e}</span><span class="txt"><span class="name">${t}</span><span class="sub">${sub}</span></span>${icon('chev', 'chev')}</button>`).join('')}</div></section>
       </div><div>
       ${calCard(m.calendario)}
       <section class="card"><div class="kicker" style="margin-bottom:6px">Ajustes</div><div class="list">
@@ -635,11 +724,11 @@
   async function loadDinero(mes, silent) {
     if (!silent || !S.din) skeleton();
     try { S.din = await api('dinero', { mes: mes == null ? (S.din ? S.din.mes : '') : mes }); if (S.tab === 'dinero') renderDinero(); }
-    catch (e) { if (S.tab === 'dinero') view.innerHTML = errBox(e.message, 'reload-din'); }
+    catch (e) { if (S.tab === 'dinero' && S.pin) view.innerHTML = errBox(e.message, 'reload-din'); }
   }
   const pctOf = (g, l) => (l > 0 ? g / l : g > 0 ? 9 : 0);
   function statusOf(p) { return p > 1 ? 'over' : p >= 0.8 ? 'near' : 'ok'; }
-  function backLink() { return `<button type="button" class="linkbtn back" data-d="back">‹ Más</button>`; }
+  function backLink() { return MAIN.includes(S.tab) ? '' : `<button type="button" class="linkbtn back" data-d="back">‹ Más</button>`; }
   function renderDinero() {
     const d = S.din; if (!d) return;
     const p = pctOf(d.gastado, d.limite), st = statusOf(p);
@@ -747,7 +836,7 @@
   async function loadProgreso() {
     if (!S.prog) skeleton();
     try { S.prog = await api('progreso'); if (S.tab === 'progreso') renderProgreso(); }
-    catch (e) { if (S.tab === 'progreso') view.innerHTML = errBox(e.message, 'reload-prog'); }
+    catch (e) { if (S.tab === 'progreso' && S.pin) view.innerHTML = errBox(e.message, 'reload-prog'); }
   }
   const dayOf = (k) => addDays(S.prog.inicio, k);
   function dailyPct(pr) {
@@ -947,16 +1036,15 @@
   }
   function tasksCard(t) {
     if (!Array.isArray(t.tareas)) return '';
-    return `<section class="card" style="display:flex;flex-direction:column;gap:10px">
-      <div class="row between"><span class="kicker">Tareas · hoy y mañana</span><button type="button" class="linkbtn" data-e="goest">Ver todas${icon('chev')}</button></div>
-      ${t.tareas.length ? `<div class="tlist">${t.tareas.map(taskRow).join('')}</div>` : '<p class="small muted" style="margin:0">Nada que entregar hoy ni mañana. 🎉</p>'}
-      <button type="button" class="btn ghost slim" data-e="tnew">+ Tarea</button></section>`;
+    return `<section class="group">
+      <div class="section-title"><h2>Tareas</h2><span class="row" style="gap:14px"><button type="button" class="linkbtn" data-e="tnew">${icon('plus')}Nueva</button><button type="button" class="linkbtn" data-e="goest">Todas</button></span></div>
+      <div class="card glist">${t.tareas.length ? `<div class="tlist">${t.tareas.map(taskRow).join('')}</div>` : '<p class="small muted" style="margin:12px 0">Nada para hoy ni mañana. 🎉</p>'}</div></section>`;
   }
 
   async function loadEstudios(silent) {
     if (!silent || !S.est) skeleton();
     try { S.est = await api('estudios'); if (S.tab === 'estudios') renderEstudios(); }
-    catch (e) { if (S.tab === 'estudios') view.innerHTML = errBox(e.message, 'reload-est'); }
+    catch (e) { if (S.tab === 'estudios' && S.pin) view.innerHTML = errBox(e.message, 'reload-est'); }
   }
   function renderEstudios() {
     const e = S.est; if (!e) return;
@@ -1329,7 +1417,7 @@
   async function loadCocina(semana) {
     if (!S.coc) skeleton();
     try { S.coc = await api('cocina', { semana: semana || (S.coc && S.coc.semana) || '' }); if (S.tab === 'recetas') renderCocina(); }
-    catch (e) { if (S.tab === 'recetas') view.innerHTML = errBox(e.message, 'reload-coc'); }
+    catch (e) { if (S.tab === 'recetas' && S.pin) view.innerHTML = errBox(e.message, 'reload-coc'); }
   }
   const recByName = (n) => (S.coc.recetas || []).find((r) => r.nombre === n);
   function fmtQty(q) { const r = Math.round(q * 100) / 100; if (Math.abs(r - Math.round(r)) < 0.01) return String(Math.round(r)); return r.toLocaleString('es-ES', { maximumFractionDigits: 2 }); }
@@ -1481,7 +1569,7 @@
   async function loadBiblioteca() {
     if (!S.bib) skeleton();
     try { S.bib = await api('biblioteca'); if (S.tab === 'biblioteca') renderBiblioteca(); }
-    catch (e) { if (S.tab === 'biblioteca') view.innerHTML = errBox(e.message, 'reload-bib'); }
+    catch (e) { if (S.tab === 'biblioteca' && S.pin) view.innerHTML = errBox(e.message, 'reload-bib'); }
   }
   const BOOK_COLORS = ['#6D4AFF', '#2456E6', '#0F766E', '#BE185D', '#B45309', '#1E3A8A', '#7C3AED', '#0369A1'];
   function bookCover(b, cls) {
@@ -1614,7 +1702,7 @@
   async function loadDeseos() {
     if (!S.des) skeleton();
     try { S.des = await api('deseos'); if (S.tab === 'deseos') renderDeseos(); }
-    catch (e) { if (S.tab === 'deseos') view.innerHTML = errBox(e.message, 'reload-des'); }
+    catch (e) { if (S.tab === 'deseos' && S.pin) view.innerHTML = errBox(e.message, 'reload-des'); }
   }
   function renderDeseos() {
     const d = S.des; if (!d) return;
@@ -1670,7 +1758,7 @@
   async function loadRevision(semana) {
     if (!S.rev) skeleton();
     try { S.rev = await api('revision', { semana: semana || (S.rev && S.rev.semana) || '' }); S.revDraft = null; if (S.tab === 'revision') renderRevision(); }
-    catch (e) { if (S.tab === 'revision') view.innerHTML = errBox(e.message, 'reload-rev'); }
+    catch (e) { if (S.tab === 'revision' && S.pin) view.innerHTML = errBox(e.message, 'reload-rev'); }
   }
   const isoNice = (t) => String(t).replace(/\d{4}-\d{2}-\d{2}/g, (d) => shortDate(d));
   const pctS = (x) => (x == null ? '–' : Math.round(x * 100) + ' %');
@@ -1786,9 +1874,22 @@
     const r = await api('img', { id });
     const bin = atob(r.data), arr = new Uint8Array(bin.length);
     for (let k = 0; k < bin.length; k++) arr[k] = bin.charCodeAt(k);
-    const blob = new Blob([arr], { type: r.mime || 'image/jpeg' });
+    let blob = new Blob([arr], { type: r.mime || 'image/jpeg' });
+    blob = await shrink(blob, 1200);
     try { if (cache) await cache.put(key, new Response(blob)); } catch (e) { /* sin caché */ }
     return (imgURLs[id] = URL.createObjectURL(blob));
+  }
+  // Reduce la foto a ~1200 px antes de guardarla: carga y pinta mucho más rápido
+  async function shrink(blob, max) {
+    try {
+      const bmp = await createImageBitmap(blob);
+      const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+      if (k >= 1 && blob.size < 400000) return blob;
+      const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+      c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+      const out = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.82));
+      return out && out.size < blob.size ? out : blob;
+    } catch (e) { return blob; }
   }
   function paintImages(root) {
     (root || document).querySelectorAll('[data-img]').forEach(async (el) => {
@@ -1799,7 +1900,7 @@
   async function loadVision() {
     if (!S.vision) skeleton();
     try { S.vision = await api('vision'); store('set', 'l2627.vision', JSON.stringify(S.vision)); if (S.tab === 'vision') renderVision(); }
-    catch (e) { if (S.tab === 'vision') view.innerHTML = errBox(e.message, 'reload-vision'); }
+    catch (e) { if (S.tab === 'vision' && S.pin) view.innerHTML = errBox(e.message, 'reload-vision'); }
   }
   function pctTxt(p) { return p == null ? '' : Math.round(p * 100) + '%'; }
   function renderVision() {

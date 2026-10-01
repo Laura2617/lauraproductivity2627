@@ -66,6 +66,9 @@ La construí sin frameworks y sin servidor propio. El backend es **Google Apps S
 - Botón **"Copiar resumen para Claude"**: genera un informe en Markdown para analizar la semana con IA y planificar la siguiente.
 
 ### Diseño
+- Estilo inspirado en iOS con una paleta sacada de mi vision board: azul de azulejo y fondo de lino.
+- Cada pestaña lleva de cabecera una foto de mi visión del tema de esa sección, distinta cada día. Las fotos se descargan una vez, se reducen en el propio móvil y se guardan en caché para que la app no se ralentice.
+- Barra inferior con Hoy, Estudios, Gym, Dinero y Progreso, y un botón flotante para apuntar un gasto en segundos.
 - Modo claro y oscuro automático, diseño a dos columnas en iPad y áreas táctiles grandes.
 - Se instala en la pantalla de inicio como una app y abre al instante gracias al *service worker*.
 
@@ -114,7 +117,7 @@ manifest.webmanifest  instalación como app
 ```
 
 ## Cómo probarla
-Clona el repositorio, deja `API_URL` vacío en `config.js` y sirve la carpeta (por ejemplo, `python3 -m http.server`). Se abre en **modo demo** con el PIN `1212`.
+Clona el repositorio, deja `API_URL` vacío en `config.js` y sirve la carpeta (por ejemplo, `python3 -m http.server`). Se abre en **modo demo** con el PIN `0000`.
 
 ## Fases
 - **Fase 1:** Hoy, Añadir, Gym, Visión y Más.

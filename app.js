@@ -3,7 +3,7 @@
   'use strict';
   const CFG = window.CONFIG || {};
   const DEMO = !CFG.API_URL;
-  const APP_VERSION = '3.4 · Hoy más rápido';
+  const APP_VERSION = '3.5 · diagnóstico de errores';
   const LS = { pin: 'l2627.pin', sound: 'l2627.sound', theme: 'l2627.theme' };
   const $ = (s, el) => (el || document).querySelector(s);
   const view = $('#view'), tabs = $('#tabs'), sheet = $('#sheet'), toastEl = $('#toast'), timerEl = $('#timer'), fab = $('#fab');
@@ -183,12 +183,21 @@
   // ─── HOY ─────────────────────────────────────────────────────
   async function loadToday(silent) {
     if (!S.fecha) S.fecha = todayIso();
-    if (!S.today || S.today._f !== S.fecha) { const c = cGet('today.' + S.fecha); if (c) { S.today = c; renderToday(); silent = true; } }
+    if (!S.today || S.today._f !== S.fecha) { const c = cGet('today.' + S.fecha); if (c) { try { S.today = c; renderToday(); silent = true; } catch (e) { S.today = null; S.citas = {}; } } }
     if (!silent || !S.today) skeleton();
     const f = S.fecha, my = S.seq;
     loadCitas(f);
-    try { const r = await api('today', { fecha: f }); r._f = f; cSet('today.' + f, r); if (f !== S.fecha || my !== S.seq) return; S.today = r; if (S.tab === 'hoy') renderToday(); }
-    catch (e) { if (S.tab === 'hoy' && S.pin) view.innerHTML = errBox(e.message, 'reload-today'); }
+    let r;
+    try { r = await api('today', { fecha: f }); }
+    catch (e) { if (S.tab === 'hoy' && S.pin && !S.today) view.innerHTML = errBox(e.message, 'reload-today'); else if (S.pin) toast(e.message, true); return; }
+    r._f = f; cSet('today.' + f, r); if (f !== S.fecha || my !== S.seq) return; S.today = r;
+    try { if (S.tab === 'hoy') renderToday(); }
+    catch (e) {
+      try { localStorage.removeItem('l2627.c.today.' + f); localStorage.removeItem('l2627.c.citas.' + f); } catch (e2) { /* nada */ }
+      S.citas = {};
+      const where = String(e.stack || '').split('\n').find((l) => /app\.js/.test(l)) || '';
+      if (S.tab === 'hoy' && S.pin) view.innerHTML = errBox('App: ' + e.message + (where ? ' · ' + where.replace(/^.*app\.js[^:]*/, 'línea').trim() : ''), 'reload-today');
+    }
   }
   function errBox(msg, act) { return `<div class="card"><p class="bold">No se ha podido cargar</p><p class="muted small">${esc(msg)}</p><button type="button" class="btn" data-act="${act}">Reintentar</button></div>`; }
 

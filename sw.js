@@ -1,5 +1,5 @@
 // Guarda la "carcasa" de la app para que abra al instante. Los datos siempre vienen de tu Google Sheets.
-const CACHE = 'laura2627-v15';
+const CACHE = 'laura2627-v16';
 const SHELL = ['./', 'index.html', 'app.css', 'app.js', 'config.js', 'demo.js', 'manifest.webmanifest', 'icon-192.png', 'apple-touch-icon.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE && k !== 'l2627-img').map((k) => caches.delete(k)))).then(() => self.clients.claim())); });

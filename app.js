@@ -3,7 +3,7 @@
   'use strict';
   const CFG = window.CONFIG || {};
   const DEMO = !CFG.API_URL;
-  const APP_VERSION = '3.1 · diseño vision board';
+  const APP_VERSION = '3.2 · fecha exacta en tareas';
   const LS = { pin: 'l2627.pin', sound: 'l2627.sound', theme: 'l2627.theme' };
   const $ = (s, el) => (el || document).querySelector(s);
   const view = $('#view'), tabs = $('#tabs'), sheet = $('#sheet'), toastEl = $('#toast'), timerEl = $('#timer'), fab = $('#fab');
@@ -1185,9 +1185,9 @@
       <input class="text-in" type="text" maxlength="200" placeholder="¿Qué tienes que hacer?" value="${esc(t.tarea)}" data-tf="tarea" aria-label="Tarea" enterkeyhint="done">
       <div><div class="small muted bold" style="margin-bottom:8px">Asignatura</div><div class="chips">${subjectList().map((s) => `<button type="button" class="chip subchip ${t.asignatura === s ? 'on' : ''}" data-t="asig" data-v="${esc(s)}" style="--sc:${subColor(s)}"><i class="sdot" style="background:${subColor(s)}"></i>${esc(shortSub(s))}</button>`).join('')}</div></div>
       <div><div class="small muted bold" style="margin-bottom:8px">Tipo</div><div class="chips">${TIPOS.map((x) => `<button type="button" class="chip ${t.tipo === x ? 'on' : ''}" data-t="tipo" data-v="${x}">${x}</button>`).join('')}</div></div>
-      <div><div class="small muted bold" style="margin-bottom:8px">Fecha límite${t.fecha ? ' · ' + esc(cap(niceDate(t.fecha))) : ''}</div>
-        <div class="chips">${quick.map(([l, v]) => `<button type="button" class="chip ${t.fecha === v ? 'on' : ''}" data-t="fecha" data-v="${v}">${l}</button>`).join('')}
-        <label class="chip datechip ${t.fecha && !quick.some(([, v]) => v === t.fecha) ? 'on' : ''}">Otra fecha<input type="date" value="${esc(t.fecha)}" data-tf="fecha" aria-label="Elegir fecha"></label></div></div>
+      <div><div class="small muted bold" style="margin-bottom:8px">Fecha límite<span data-tfl>${t.fecha ? ' · ' + esc(cap(niceDate(t.fecha))) : ''}</span></div>
+        <div class="chips">${quick.map(([l, v]) => `<button type="button" class="chip ${t.fecha === v ? 'on' : ''}" data-t="fecha" data-v="${v}">${l}</button>`).join('')}</div>
+        <label class="row datepick"><span class="small muted">o elige el día exacto</span><input class="text-in" type="date" value="${esc(t.fecha)}" data-tf="fecha" aria-label="Elegir fecha exacta"></label></div>
       <div><div class="small muted bold" style="margin-bottom:8px">Prioridad</div><div class="seg">${PRIOS.map((p) => `<button type="button" class="${t.prioridad === p ? 'on' : ''}" data-t="prio" data-v="${p}">${p}</button>`).join('')}</div></div>
       <input class="text-in" type="text" maxlength="300" placeholder="Notas (opcional)" value="${esc(t.notas)}" data-tf="notas" aria-label="Notas">
       <button type="button" class="btn" data-t="save" ${ok ? '' : 'disabled'}>${t.busy ? 'Guardando…' : t.row ? 'Guardar cambios' : 'Añadir tarea'}</button>
@@ -1243,10 +1243,17 @@
   });
   sheet.addEventListener('input', (e) => {
     const f = e.target.dataset && e.target.dataset.tf; if (!f || !S.task) return;
+    if (f === 'fecha') return syncTaskDate(e.target.value);
     S.task[f] = e.target.value;
     if (f === 'tarea') { const btn = sheet.querySelector('[data-t="save"]'); if (btn) btn.disabled = !e.target.value.trim(); }
   });
-  sheet.addEventListener('change', (e) => { if (e.target.dataset && e.target.dataset.tf === 'fecha' && S.task) { S.task.fecha = e.target.value; renderTask(); } });
+  // Fecha exacta: no se vuelve a pintar la hoja para no cerrar el selector de fecha del iPhone
+  function syncTaskDate(v) {
+    S.task.fecha = v;
+    sheet.querySelectorAll('[data-t="fecha"]').forEach((b) => b.classList.toggle('on', b.dataset.v === v));
+    const l = sheet.querySelector('[data-tfl]'); if (l) l.textContent = v ? ' · ' + cap(niceDate(v)) : '';
+  }
+  sheet.addEventListener('change', (e) => { if (e.target.dataset && e.target.dataset.tf === 'fecha' && S.task) syncTaskDate(e.target.value); });
   sheet.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.dataset && e.target.dataset.tf === 'tarea' && S.task && S.task.tarea.trim()) { e.preventDefault(); saveTask(); } });
 
   // Hoja para editar asignatura / certificación

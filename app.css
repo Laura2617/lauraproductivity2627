@@ -668,3 +668,6 @@ details.level2 > .card { margin-top: 8px; }
 .card { padding: 14px; }
 .glist { padding: 0 0 0 14px; }
 .navrow { min-height: 52px; }
+.datepick { margin-top: 10px; gap: 10px; }
+.datepick .text-in { flex: 1; min-width: 0; width: auto; height: 42px; }
+.sheet > * { flex-shrink: 0; }

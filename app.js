@@ -3,7 +3,7 @@
   'use strict';
   const CFG = window.CONFIG || {};
   const DEMO = !CFG.API_URL;
-  const APP_VERSION = '3.5 · diagnóstico de errores';
+  const APP_VERSION = '3.6 · hábitos automáticos marcados';
   const LS = { pin: 'l2627.pin', sound: 'l2627.sound', theme: 'l2627.theme' };
   const $ = (s, el) => (el || document).querySelector(s);
   const view = $('#view'), tabs = $('#tabs'), sheet = $('#sheet'), toastEl = $('#toast'), timerEl = $('#timer'), fab = $('#fab');
@@ -307,14 +307,16 @@
   function agColor(tipo) { return ({ Clase: '#2343C4', Estudio: '#5856D6', 'Certificación': '#AF52DE', Gym: '#30B0C7', Deporte: '#FF9500', Curso: '#32ADE6', Comida: '#FFCC00', Rutina: '#8E8E93', Cita: '#FF9500' })[tipo] || '#8E8E93'; }
   function habitRow(h, t, weekly) {
     let sub = '';
-    if (h.i === 6) sub = `Objetivo ${esc(t.wakeTarget || '')}${t.despertar ? ' · Polar: ' + esc(t.despertar) : ' · con tu Polar'}`;
+    if (h.i === 6) sub = `Objetivo ${esc(t.wakeTarget || '')}${t.despertar ? ' · Polar: ' + esc(t.despertar) + (h.done ? ' ✓' : ' · tarde') : ' · llega sola con tu Polar'}`;
     else if (weekly) sub = h.freq === 'Semanal' ? `${h.count} de ${h.veces} esta semana` : `${h.count} de ${h.veces} este mes`;
     else if (h.streak) sub = `🔥 ${h.streak} ${h.streak === 1 ? 'día' : 'días'}`;
     const miss = !h.done && h.yesterday === false && h.freq === 'Diario' && h.activo;
+    // «Me levanto a mi hora» (Polar) y Gym (entreno guardado) se marcan solos aunque no los toques
+    const on = !!h.value || ((h.i === 6 || h.i === 11) && h.done);
     return `<div class="habit ${h.done ? 'done' : ''} ${miss ? 'miss' : ''}">
       <span class="ico" aria-hidden="true">${esc(emojiOf(h.name))}</span>
       <span class="txt"><span class="name">${esc(labelOf(h.name))}</span>${sub ? `<span class="sub">${sub}</span>` : ''}</span>
-      <button type="button" class="check ${h.value ? 'on' : ''}" data-act="toggle" data-i="${h.i}" aria-pressed="${h.value ? 'true' : 'false'}" aria-label="${h.value ? 'Desmarcar' : 'Marcar'} ${esc(labelOf(h.name))}">${h.value ? icon('check') : ''}</button>
+      <button type="button" class="check ${on ? 'on' : ''}" data-act="toggle" data-i="${h.i}" aria-pressed="${on ? 'true' : 'false'}" aria-label="${on ? 'Desmarcar' : 'Marcar'} ${esc(labelOf(h.name))}">${on ? icon('check') : ''}</button>
     </div>`;
   }
   // Citas sueltas (dentista, reuniones…): van a tu calendario con aviso y salen en la agenda

@@ -3,7 +3,7 @@
   'use strict';
   const CFG = window.CONFIG || {};
   const DEMO = !CFG.API_URL;
-  const APP_VERSION = '3.3 · citas y eventos';
+  const APP_VERSION = '3.4 · Hoy más rápido';
   const LS = { pin: 'l2627.pin', sound: 'l2627.sound', theme: 'l2627.theme' };
   const $ = (s, el) => (el || document).querySelector(s);
   const view = $('#view'), tabs = $('#tabs'), sheet = $('#sheet'), toastEl = $('#toast'), timerEl = $('#timer'), fab = $('#fab');
@@ -186,6 +186,7 @@
     if (!S.today || S.today._f !== S.fecha) { const c = cGet('today.' + S.fecha); if (c) { S.today = c; renderToday(); silent = true; } }
     if (!silent || !S.today) skeleton();
     const f = S.fecha, my = S.seq;
+    loadCitas(f);
     try { const r = await api('today', { fecha: f }); r._f = f; cSet('today.' + f, r); if (f !== S.fecha || my !== S.seq) return; S.today = r; if (S.tab === 'hoy') renderToday(); }
     catch (e) { if (S.tab === 'hoy' && S.pin) view.innerHTML = errBox(e.message, 'reload-today'); }
   }
@@ -263,7 +264,7 @@
           ${(() => {
             const gymPill = `<span class="go-pill">${gymDef.value || gymDef.done ? 'Hecho ✓' : 'Empezar'}</span>`;
             const gymSub = g.rutina ? `${g.ejercicios} ejercicios · ${gymDef.count || g.semana || 0} de ${gymDef.veces || g.meta || 4} esta semana` : '';
-            const citas = (t.citas && t.citas.hoy) || [];
+            const citas = citasFor(S.fecha).hoy || [];
             const items = agenda.map((a) => Object.assign({ k: (a.inicio || '').padStart(5, '0') }, a)).concat(citas.map((c, n) => ({ k: c.todoDia ? '00:00' : c.inicio, cita: n, c })))
               .sort((x, y) => (x.k < y.k ? -1 : x.k > y.k ? 1 : 0));
             const rows = items.map((a) => a.c
@@ -274,8 +275,9 @@
             if (g.rutina && !agenda.some((a) => a.tipo === 'Gym')) rows.unshift(`<button type="button" class="ag-row tap" data-act="gogym"><span class="ag-t">Gym</span><span class="ag-ln" style="background:var(--teal-2)"></span><span class="ag-b"><b>${esc(g.rutina)}</b><span class="small muted">${gymSub}</span></span>${gymPill}</button>`);
             return rows.join('');
           })()}
-          ${!g.rutina && !agenda.length && !((t.citas && t.citas.hoy) || []).length ? '<p class="small muted" style="margin:12px 0">Nada en la agenda. Día libre. ☀️</p>' : ''}
-          ${t.citas && t.citas.proximas && t.citas.proximas.length ? `<div class="soon-list"><span class="kicker">Próximamente</span>${t.citas.proximas.map((c, n) => `<button type="button" class="soon-row tap" data-act="citap" data-n="${n}"><span class="sd">${esc(shortDate(c.fecha))}</span><span class="st">${c.todoDia ? '' : esc(c.inicio)}</span><span class="sn">${esc(c.titulo)}</span></button>`).join('')}</div>` : ''}
+          ${citasFor(S.fecha).error ? `<p class="small muted" style="margin:10px 0">No he podido leer tu calendario: ${esc(citasFor(S.fecha).error)}</p>` : ''}
+          ${!g.rutina && !agenda.length && !(citasFor(S.fecha).hoy || []).length ? '<p class="small muted" style="margin:12px 0">Nada en la agenda. Día libre. ☀️</p>' : ''}
+          ${(citasFor(S.fecha).proximas || []).length ? `<div class="soon-list"><span class="kicker">Próximamente</span>${citasFor(S.fecha).proximas.map((c, n) => `<button type="button" class="soon-row tap" data-act="citap" data-n="${n}"><span class="sd">${esc(shortDate(c.fecha))}</span><span class="st">${c.todoDia ? '' : esc(c.inicio)}</span><span class="sn">${esc(c.titulo)}</span></button>`).join('')}</div>` : ''}
         </div>
       </section>
       ${tasksCard(t)}`;
@@ -307,7 +309,12 @@
     </div>`;
   }
   // Citas sueltas (dentista, reuniones…): van a tu calendario con aviso y salen en la agenda
-  function afterCita(r) { if (r && r.habits) { r._f = r.fecha; cSet('today.' + r.fecha, r); if (r.fecha === S.fecha) { S.today = r; if (S.tab === 'hoy') renderToday(); } } }
+  // Las citas se cargan aparte (leer el calendario es lento): Hoy sale al momento y las citas llegan después
+  S.citas = {};
+  function citasFor(f) { if (!S.citas[f]) S.citas[f] = cGet('citas.' + f); return S.citas[f] || { hoy: [], proximas: [] }; }
+  function setCitas(f, c) { if (!c) return; S.citas[f] = c; cSet('citas.' + f, c); if (S.tab === 'hoy' && S.fecha === f && S.today) renderToday(); }
+  async function loadCitas(f) { try { const r = await api('citas', { fecha: f }, true); setCitas(f, r.citas); } catch (e) { /* se queda lo guardado */ } }
+  function afterCita(r) { setCitas(S.fecha || todayIso(), r && r.citas); }
   function openCita() {
     openForm({ title: 'Nueva cita', kicker: 'AGENDA', focus: 'titulo',
       fields: [{ key: 'titulo', label: '¿Qué es?', placeholder: 'Dentista, reunión, cena…', max: 120 },
@@ -410,8 +417,8 @@
     if (act === 'gorec') return go('recetas');
     if (act === 'numedit') return openNum(Number(b.dataset.i));
     if (act === 'citanew') return openCita();
-    if (act === 'cita') return showCita(S.today.citas.hoy[Number(b.dataset.n)]);
-    if (act === 'citap') return showCita(S.today.citas.proximas[Number(b.dataset.n)]);
+    if (act === 'cita') return showCita(citasFor(S.fecha).hoy[Number(b.dataset.n)]);
+    if (act === 'citap') return showCita(citasFor(S.fecha).proximas[Number(b.dataset.n)]);
     if (act === 'toggle') {
       const h = S.today.habits.find((x) => x.i === Number(b.dataset.i)); if (!h) return;
       h.value = !h.value; h.done = habitDone(h);

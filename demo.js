@@ -134,7 +134,6 @@ window.DemoAPI = (function () {
       nombre: 'Laura', frase: { text: 'No subes al nivel de tus metas, caes al nivel de tus sistemas.', autor: 'James Clear · Hábitos atómicos' },
       curso, despertar: '07:04', wakeTarget: '07:00', nota: '', sinGastar: '',
       agenda: [{ inicio: '08:00', fin: '10:00', actividad: 'Clase', tipo: 'Clase' }, { inicio: '16:00', fin: '18:30', actividad: 'Estudio', tipo: 'Estudio' }, { inicio: '19:30', fin: '20:30', actividad: 'Gym · ' + (rutinaHoy || 'descanso'), tipo: 'Gym' }],
-      citas: citasOf(fecha || today),
       gym: { rutina: rutinaHoy, ejercicios: rutinaHoy ? 5 : 0, semana: 1 + (logged.length ? 1 : 0), meta: 4 },
       money: money(), sonido: true, tareas: soonT(), menuHoy: menuOf(mondayOf(today)).filter((m) => m.dia === ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][new Date().getDay()])
     };
@@ -158,8 +157,9 @@ window.DemoAPI = (function () {
     return new Promise((res) => setTimeout(() => {
       if (action === 'ping') return res(p.pin === '0000' ? { ok: true, nombre: 'Laura' } : { ok: false, badPin: true, error: 'PIN incorrecto (en la demo es 0000)' });
       if (action === 'today') return res(todayResp(p.fecha));
-      if (action === 'addCita') { const ini = p.inicio || ''; let fin = p.fin || ''; if (ini && !fin) { const [h, m] = ini.split(':').map(Number); fin = String(h + 1).padStart(2, '0') + ':' + String(m).padStart(2, '0'); } citas.push({ id: 'c' + (++citaN), mine: true, titulo: p.titulo, lugar: p.lugar || '', notas: '', fecha: p.fecha, inicio: ini, fin: ini ? fin : '', todoDia: !ini }); return res(todayResp(p.vista)); }
-      if (action === 'deleteCita') { const k = citas.findIndex((c) => c.id === p.id); if (k >= 0) citas.splice(k, 1); return res(todayResp(p.vista)); }
+      if (action === 'addCita') { const ini = p.inicio || ''; let fin = p.fin || ''; if (ini && !fin) { const [h, m] = ini.split(':').map(Number); fin = String(h + 1).padStart(2, '0') + ':' + String(m).padStart(2, '0'); } citas.push({ id: 'c' + (++citaN), mine: true, titulo: p.titulo, lugar: p.lugar || '', notas: '', fecha: p.fecha, inicio: ini, fin: ini ? fin : '', todoDia: !ini }); return res({ ok: true, citas: citasOf(p.vista || today) }); }
+      if (action === 'deleteCita') { const k = citas.findIndex((c) => c.id === p.id); if (k >= 0) citas.splice(k, 1); return res({ ok: true, citas: citasOf(p.vista || today) }); }
+      if (action === 'citas') return res({ ok: true, citas: citasOf(p.fecha || today) });
       if (action === 'setHabit') { vals[p.i] = p.value; return res(todayResp(p.fecha)); }
       if (action === 'setField') { if (p.field === 'curso') curso = p.value; return res(todayResp(p.fecha)); }
       if (action === 'meta') return res(meta());

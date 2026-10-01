@@ -3,17 +3,21 @@
   'use strict';
   const CFG = window.CONFIG || {};
   const DEMO = !CFG.API_URL;
-  const APP_VERSION = '3.0 · nuevo diseño';
+  const APP_VERSION = '3.1 · diseño vision board';
   const LS = { pin: 'l2627.pin', sound: 'l2627.sound', theme: 'l2627.theme' };
   const $ = (s, el) => (el || document).querySelector(s);
   const view = $('#view'), tabs = $('#tabs'), sheet = $('#sheet'), toastEl = $('#toast'), timerEl = $('#timer'), fab = $('#fab');
-  const MAIN = ['hoy', 'estudios', 'gym', 'dinero', 'progreso'];
+  const MAIN = ['hoy', 'estudios', 'gym', 'dinero', 'progreso', 'recetas', 'biblioteca'];
 
   const S = { pin: store('get', LS.pin), tab: 'hoy', fecha: null, today: null, meta: null, gym: null, gymMode: '60', gymRutina: null,
     pending: 0, seq: 0, add: null, est: null, modOpen: {}, coc: null, cocTab: 'menu', recFilter: 'Todas', bib: null, bibTab: 'libros', des: null, desTab: 'pend', rev: null, revDraft: null, form: null, picker: null, din: null, dinCat: '', fix: null, prog: null, progHabit: null, progMonth: null, estFilter: 'Todas', estOpen: {}, task: null, sedit: null, timer: null, soundLocal: store('get', LS.sound) !== 'off' };
 
   // ─── Utilidades ──────────────────────────────────────────────
   function store(op, k, v) { try { if (op === 'get') return localStorage.getItem(k); if (op === 'set') localStorage.setItem(k, v); if (op === 'del') localStorage.removeItem(k); } catch (e) { return null; } return null; }
+  // Copia local de lo último que vino del Sheets: la app pinta al instante y luego actualiza
+  function cGet(k) { try { return JSON.parse(store('get', 'l2627.c.' + k) || 'null'); } catch (e) { return null; } }
+  function cSet(k, v) { try { store('set', 'l2627.c.' + k, JSON.stringify(v)); } catch (e) { /* lleno: no pasa nada */ } }
+  function cClear() { try { Object.keys(localStorage).filter((k) => k.startsWith('l2627.c.') || k === 'l2627.vision').forEach((k) => localStorage.removeItem(k)); } catch (e) { /* nada */ } }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   const eur = (n) => (n == null || isNaN(n) ? '–' : Number(n).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €');
   const fmt = (n, d) => (n == null || n === '' || isNaN(n) ? '' : Number(n).toLocaleString('es-ES', { maximumFractionDigits: d == null ? 1 : d }));
@@ -32,6 +36,7 @@
     mas: 'M4 6h16 M4 12h16 M4 18h16', vision: 'M12 2l3 6 6 1-4.5 4.5 1 6.5-5.5-3-5.5 3 1-6.5L3 9l6-1z', close: 'M6 6l12 12 M18 6L6 18', check: 'M5 12l5 5 9-10', flame: 'M12 22c4 0 7-3 7-7 0-4-3-6-4-9-1 2-2 3-4 3 0-2 0-4-1-6-3 3-5 7-5 12 0 4 3 7 7 7z',
     warn: 'M12 3l10 18H2z M12 10v5 M12 18h.01', trophy: 'M8 4h8v5a4 4 0 0 1-8 0z M8 6H4v1a4 4 0 0 0 4 4 M16 6h4v1a4 4 0 0 1-4 4 M12 13v4 M8 20h8',
     chev: 'M9 6l6 6-6 6', trash: 'M4 7h16 M10 11v6 M14 11v6 M6 7l1 13h10l1-13 M9 7V4h6v3', clock: 'M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18z M12 7v5l3 2',
+    biblioteca: 'M5 4h4v16H5z M10 4h4v16h-4z M15.5 5.2l3.8-1 3.2 15.4-3.8 1z',
     dinero: 'M3 6.5h18v11H3z M3 10h18 M7 14.5h4', progreso: 'M5 20v-7 M12 20V5 M19 20v-11', grid: 'M5 5h5v5H5z M14 5h5v5h-5z M5 14h5v5H5z M14 14h5v5h-5z',
     estudios: 'M2 9l10-5 10 5-10 5z M6 11v5c3 2.5 9 2.5 12 0v-5 M22 9v6', sheet: 'M4 4h16v16H4z M4 10h16 M10 4v16', logout: 'M15 4h4v16h-4 M10 8l-4 4 4 4 M6 12h10', sound: 'M4 9v6h4l5 4V5L8 9z M17 9a4 4 0 0 1 0 6'
   };
@@ -48,9 +53,9 @@
   }
 
   // ─── API ─────────────────────────────────────────────────────
-  async function api(action, params) {
+  async function api(action, params, quiet) {
     const body = Object.assign({}, params || {}, { action, pin: S.pin });
-    S.pending++; setSaving(true);
+    if (!quiet) { S.pending++; setSaving(true); }
     try {
       let r;
       if (DEMO) r = await window.DemoAPI(action, body);
@@ -66,7 +71,7 @@
     } catch (e) {
       if (String(e.message).match(/Failed to fetch|NetworkError|Load failed/)) throw new Error('Sin conexión. Inténtalo de nuevo.');
       throw e;
-    } finally { S.pending--; if (!S.pending) setSaving(false); }
+    } finally { if (!quiet) { S.pending--; if (!S.pending) setSaving(false); } }
   }
 
   // ─── Arranque ────────────────────────────────────────────────
@@ -75,7 +80,7 @@
     tabs.hidden = false; go('hoy');
     setTimeout(warmVision, 1200);
   }
-  function logout(msg) { store('del', LS.pin); S.pin = null; tabs.hidden = true; fab.hidden = true; renderLogin(msg); }
+  function logout(msg) { store('del', LS.pin); cClear(); S.pin = null; tabs.hidden = true; fab.hidden = true; renderLogin(msg); }
 
   function renderLogin(msg) {
     tabs.hidden = true; fab.hidden = true; let pin = '';
@@ -105,8 +110,10 @@
   }
 
   function renderTabs() {
-    const t = [['hoy', 'Hoy'], ['estudios', 'Estudios'], ['gym', 'Gym'], ['dinero', 'Dinero'], ['progreso', 'Progreso']];
-    tabs.innerHTML = t.map(([k, l]) => `<button type="button" data-tab="${k}" class="${S.tab === k ? 'on' : ''}" ${S.tab === k ? 'aria-current="page"' : ''}>${icon(k)}<span>${l}</span></button>`).join('');
+    const t = [['hoy', 'Hoy'], ['estudios', 'Estudios'], ['gym', 'Gym'], ['dinero', 'Dinero'], ['progreso', 'Progreso'], ['recetas', 'Recetas'], ['biblioteca', 'Biblioteca']];
+    tabs.innerHTML = `<div class="tabs-in">${t.map(([k, l]) => `<button type="button" data-tab="${k}" class="${S.tab === k ? 'on' : ''}" ${S.tab === k ? 'aria-current="page"' : ''}>${icon(k)}<span>${l}</span></button>`).join('')}</div>`;
+    const on = tabs.querySelector('.on'), box = tabs.firstElementChild;
+    if (on && box && (on.offsetLeft < box.scrollLeft || on.offsetLeft + on.offsetWidth > box.scrollLeft + box.clientWidth)) box.scrollLeft = on.offsetLeft - (box.clientWidth - on.offsetWidth) / 2;
     fab.hidden = !S.pin || ['gym', 'vision'].includes(S.tab);
   }
   fab.innerHTML = icon('plus');
@@ -119,7 +126,7 @@
     h.insertAdjacentHTML('beforeend', `<button type="button" class="avatar" data-go="mas" aria-label="Más secciones y ajustes">${icon('grid')}</button>`);
     paintHero();
   }).observe(view, { childList: true });
-  const HERO_AREAS = { estudios: ['Estudios', 'Carrera', 'Empleable'], gym: ['Cuerpo'], dinero: ['Canadá', 'Sueños'], progreso: ['Disfrutar', 'Sueños', 'Cuerpo'] };
+  const HERO_AREAS = { estudios: ['Estudios', 'Carrera', 'Empleable'], gym: ['Cuerpo'], dinero: ['Canadá', 'Sueños'], progreso: ['Disfrutar', 'Sueños', 'Cuerpo'], recetas: ['Sueños', 'Disfrutar', 'Cuerpo'], biblioteca: ['Estudios', 'Carrera', 'Disfrutar'] };
   function visionCache() { if (S.vision) return S.vision; try { return JSON.parse(store('get', 'l2627.vision') || 'null'); } catch (e) { return null; } }
   function heroId(tab) {
     if (store('get', 'l2627.hero') === 'off') return null;
@@ -132,6 +139,11 @@
     const seed = Array.from(todayIso() + tab).reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7);
     return pool[seed % pool.length];
   }
+  // Descarga por detrás (de una en una) las fotos de hoy de cada pestaña, para que salgan al instante
+  async function prefetchHeroes() {
+    const ids = Array.from(new Set(MAIN.map(heroId).filter(Boolean)));
+    for (const id of ids) { if (!S.pin) return; try { await imgURL(id); } catch (e) { /* siguiente */ } }
+  }
   function paintHero() {
     const id = heroId(S.tab);
     if (!id) { view.classList.remove('has-hero'); return; }
@@ -142,8 +154,8 @@
     imgURL(id).then((u) => { el.style.backgroundImage = `url("${u}")`; el.classList.add('loaded'); }).catch(() => { el.remove(); });
   }
   async function warmVision() {
-    if (visionCache() || !S.pin) return;
-    try { S.vision = await api('vision'); store('set', 'l2627.vision', JSON.stringify(S.vision)); if (MAIN.includes(S.tab)) { const h = view.querySelector('.head .avatar'); if (h && !view.querySelector('.hero-bg')) paintHero(); } } catch (e) { /* sin fotos */ }
+    if (visionCache() || !S.pin) return prefetchHeroes();
+    try { S.vision = await api('vision'); store('set', 'l2627.vision', JSON.stringify(S.vision)); if (MAIN.includes(S.tab)) { const h = view.querySelector('.head .avatar'); if (h && !view.querySelector('.hero-bg')) paintHero(); } prefetchHeroes(); } catch (e) { /* sin fotos */ }
   }
   document.addEventListener('click', (e) => { const b = e.target.closest('[data-go]'); if (b) go(b.dataset.go); });
   tabs.addEventListener('click', (e) => {
@@ -171,8 +183,10 @@
   // ─── HOY ─────────────────────────────────────────────────────
   async function loadToday(silent) {
     if (!S.fecha) S.fecha = todayIso();
+    if (!S.today || S.today._f !== S.fecha) { const c = cGet('today.' + S.fecha); if (c) { S.today = c; renderToday(); silent = true; } }
     if (!silent || !S.today) skeleton();
-    try { S.today = await api('today', { fecha: S.fecha }); if (S.tab === 'hoy') renderToday(); }
+    const f = S.fecha, my = S.seq;
+    try { const r = await api('today', { fecha: f }); r._f = f; cSet('today.' + f, r); if (f !== S.fecha || my !== S.seq) return; S.today = r; if (S.tab === 'hoy') renderToday(); }
     catch (e) { if (S.tab === 'hoy' && S.pin) view.innerHTML = errBox(e.message, 'reload-today'); }
   }
   function errBox(msg, act) { return `<div class="card"><p class="bold">No se ha podido cargar</p><p class="muted small">${esc(msg)}</p><button type="button" class="btn" data-act="${act}">Reintentar</button></div>`; }
@@ -386,6 +400,7 @@
     const my = ++S.seq;
     try {
       const r = await api(action, params);
+      if (r.habits) { r._f = params.fecha; cSet('today.' + params.fecha, r); }
       if (my === S.seq && S.tab === 'hoy' && r.habits) { S.today = r; renderToday(); }
     } catch (e) { toast(e.message, true); loadToday(true); }
   }
@@ -401,11 +416,18 @@
 
   // ─── GYM ─────────────────────────────────────────────────────
   async function loadGym(rutina) {
-    skeleton();
+    const ck = 'gym.' + todayIso() + '.' + (rutina || S.gymRutina || '');
+    const c = cGet(ck);
+    if (c) { S.gym = c; S.gymRutina = c.rutina; prepGym(); if (S.tab === 'gym') renderGym(); } else skeleton();
     try {
-      S.gym = await api('gymPlan', { fecha: todayIso(), rutina: rutina || S.gymRutina || undefined });
+      const r = await api('gymPlan', { fecha: todayIso(), rutina: rutina || S.gymRutina || undefined });
+      cSet(ck, r); if (S.tab !== 'gym' && c) return;
+      const old = S.gym && S.gym.rutina === r.rutina ? S.gym : null;
+      S.gym = JSON.parse(JSON.stringify(r));
       S.gymRutina = S.gym.rutina;
-      prepGym(); if (S.tab === 'gym') renderGym();
+      prepGym();
+      if (old) S.gym.ejercicios.forEach((ex) => { const o = old.ejercicios.find((x) => x.ejercicio === ex.ejercicio); if (o && o.draft) ex.draft = o.draft; });
+      if (S.tab === 'gym') renderGym();
     } catch (e) { if (S.tab === 'gym' && S.pin) view.innerHTML = errBox(e.message, 'reload-gym'); }
   }
   function nSeries(ex) {
@@ -654,8 +676,9 @@
 
   // ─── MÁS ─────────────────────────────────────────────────────
   async function loadMas() {
-    skeleton();
-    try { S.meta = await api('meta'); if (S.tab === 'mas') renderMas(); }
+    if (!S.meta) S.meta = cGet('meta');
+    if (S.meta) renderMas(); else skeleton();
+    try { S.meta = await api('meta'); cSet('meta', S.meta); if (S.tab === 'mas') renderMas(); }
     catch (e) { if (S.tab === 'mas' && S.pin) view.innerHTML = errBox(e.message, 'reload-mas'); }
   }
   function renderMas() {
@@ -666,8 +689,7 @@
     view.innerHTML = `<header class="head"><h1>Más</h1></header>
       <button type="button" class="vtile" data-m="vision"><span class="vimg" ${vImg ? `data-img="${esc(vImg)}"` : ''}></span><span class="vtile-txt"><span class="tiny bold">MI VISIÓN</span><span class="vfrase">Mis metas y mis fotos</span></span>${icon('chev')}</button>
       <div class="cols"><div>
-      <section class="group"><div class="card glist">${[['recetas', '🍳', 'Recetas', 'Menú y lista de la compra', '#FF9500'], ['biblioteca', '📚', 'Biblioteca', 'Libros y podcasts', '#AF52DE'],
-        ['deseos', '🛍️', 'Me gustaría comprar', 'Regla de las 48 horas', '#FF2D55'], ['revision', '🔁', 'Revisión semanal', 'Y resumen para Claude', '#2343C4']]
+      <section class="group"><div class="card glist">${[['deseos', '🛍️', 'Me gustaría comprar', 'Regla de las 48 horas', '#FF2D55'], ['revision', '🔁', 'Revisión semanal', 'Y resumen para Claude', '#2343C4']]
         .map(([k, e, t, sub, c]) => `<button type="button" class="navrow" data-m="${k}"><span class="nav-ico" style="--c:${c}">${e}</span><span class="txt"><span class="name">${t}</span><span class="sub">${sub}</span></span>${icon('chev', 'chev')}</button>`).join('')}</div></section>
       </div><div>
       ${calCard(m.calendario)}
@@ -722,8 +744,10 @@
 
   // ─── DINERO ──────────────────────────────────────────────────
   async function loadDinero(mes, silent) {
+    const cur = mes == null || mes === '' ? (S.din ? S.din.mes : '') : mes;
+    if (!S.din && cur === '') { const c = cGet('din'); if (c) { S.din = c; if (S.tab === 'dinero') renderDinero(); silent = true; } }
     if (!silent || !S.din) skeleton();
-    try { S.din = await api('dinero', { mes: mes == null ? (S.din ? S.din.mes : '') : mes }); if (S.tab === 'dinero') renderDinero(); }
+    try { S.din = await api('dinero', { mes: cur }); if (cur === '') cSet('din', S.din); if (S.tab === 'dinero') renderDinero(); }
     catch (e) { if (S.tab === 'dinero' && S.pin) view.innerHTML = errBox(e.message, 'reload-din'); }
   }
   const pctOf = (g, l) => (l > 0 ? g / l : g > 0 ? 9 : 0);
@@ -834,8 +858,9 @@
 
   // ─── PROGRESO ────────────────────────────────────────────────
   async function loadProgreso() {
+    if (!S.prog) { const c = cGet('prog'); if (c) { S.prog = c; if (S.tab === 'progreso') renderProgreso(); } }
     if (!S.prog) skeleton();
-    try { S.prog = await api('progreso'); if (S.tab === 'progreso') renderProgreso(); }
+    try { S.prog = await api('progreso'); cSet('prog', S.prog); if (S.tab === 'progreso') renderProgreso(); }
     catch (e) { if (S.tab === 'progreso' && S.pin) view.innerHTML = errBox(e.message, 'reload-prog'); }
   }
   const dayOf = (k) => addDays(S.prog.inicio, k);
@@ -1042,8 +1067,9 @@
   }
 
   async function loadEstudios(silent) {
+    if (!S.est) { const c = cGet('est'); if (c) { S.est = c; if (S.tab === 'estudios') renderEstudios(); } }
     if (!silent || !S.est) skeleton();
-    try { S.est = await api('estudios'); if (S.tab === 'estudios') renderEstudios(); }
+    try { S.est = await api('estudios'); cSet('est', S.est); if (S.tab === 'estudios') renderEstudios(); }
     catch (e) { if (S.tab === 'estudios' && S.pin) view.innerHTML = errBox(e.message, 'reload-est'); }
   }
   function renderEstudios() {
@@ -1415,8 +1441,9 @@
   const DIAS7 = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
   const TIPO_EMO = { 'Desayuno': '🥣', 'Comida / tupper': '🍱', 'Cena': '🌙', 'Snack / pre-post gym': '🍌' };
   async function loadCocina(semana) {
+    if (!S.coc && !semana) { const c = cGet('coc'); if (c) { S.coc = c; if (S.tab === 'recetas') renderCocina(); } }
     if (!S.coc) skeleton();
-    try { S.coc = await api('cocina', { semana: semana || (S.coc && S.coc.semana) || '' }); if (S.tab === 'recetas') renderCocina(); }
+    try { S.coc = await api('cocina', { semana: semana || (S.coc && S.coc.semana) || '' }); if (!semana) cSet('coc', S.coc); if (S.tab === 'recetas') renderCocina(); }
     catch (e) { if (S.tab === 'recetas' && S.pin) view.innerHTML = errBox(e.message, 'reload-coc'); }
   }
   const recByName = (n) => (S.coc.recetas || []).find((r) => r.nombre === n);
@@ -1567,8 +1594,9 @@
 
   // ─── BIBLIOTECA ──────────────────────────────────────────────
   async function loadBiblioteca() {
+    if (!S.bib) { const c = cGet('bib'); if (c) { S.bib = c; if (S.tab === 'biblioteca') renderBiblioteca(); } }
     if (!S.bib) skeleton();
-    try { S.bib = await api('biblioteca'); if (S.tab === 'biblioteca') renderBiblioteca(); }
+    try { S.bib = await api('biblioteca'); cSet('bib', S.bib); if (S.tab === 'biblioteca') renderBiblioteca(); }
     catch (e) { if (S.tab === 'biblioteca' && S.pin) view.innerHTML = errBox(e.message, 'reload-bib'); }
   }
   const BOOK_COLORS = ['#6D4AFF', '#2456E6', '#0F766E', '#BE185D', '#B45309', '#1E3A8A', '#7C3AED', '#0369A1'];
@@ -1700,8 +1728,9 @@
 
   // ─── ME GUSTARÍA COMPRAR ─────────────────────────────────────
   async function loadDeseos() {
+    if (!S.des) { const c = cGet('des'); if (c) { S.des = c; if (S.tab === 'deseos') renderDeseos(); } }
     if (!S.des) skeleton();
-    try { S.des = await api('deseos'); if (S.tab === 'deseos') renderDeseos(); }
+    try { S.des = await api('deseos'); cSet('des', S.des); if (S.tab === 'deseos') renderDeseos(); }
     catch (e) { if (S.tab === 'deseos' && S.pin) view.innerHTML = errBox(e.message, 'reload-des'); }
   }
   function renderDeseos() {
@@ -1871,7 +1900,7 @@
     const key = new Request(location.origin + '/__img/' + id);
     let cache = null;
     try { cache = await caches.open('l2627-img'); const hit = await cache.match(key); if (hit) return (imgURLs[id] = URL.createObjectURL(await hit.blob())); } catch (e) { cache = null; }
-    const r = await api('img', { id });
+    const r = await api('img', { id }, true);
     const bin = atob(r.data), arr = new Uint8Array(bin.length);
     for (let k = 0; k < bin.length; k++) arr[k] = bin.charCodeAt(k);
     let blob = new Blob([arr], { type: r.mime || 'image/jpeg' });

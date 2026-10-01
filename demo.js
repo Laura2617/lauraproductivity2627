@@ -118,6 +118,11 @@ window.DemoAPI = (function () {
     const g = moves.filter((m) => m.fecha === today && m.tipo === 'Gasto').reduce((a, m) => a + m.importe, 0);
     return { gastadoHoy: g, gastadoMes: 62.4 + g, limite: 120.89, queda: 120.89 - 62.4 - g };
   }
+  let citaN = 3;
+  const citas = [{ id: 'c1', mine: true, titulo: 'Dentista', lugar: 'Clínica Sonrisa', notas: '', fecha: today, inicio: '12:30', fin: '13:15', todoDia: false },
+    { id: '', mine: false, titulo: 'Reunión del TFG', lugar: 'Sala 2.04', notas: '', fecha: addD(2), inicio: '17:00', fin: '18:00', todoDia: false },
+    { id: 'c2', mine: true, titulo: 'Cumple de Ana', lugar: '', notas: '', fecha: addD(5), inicio: '', fin: '', todoDia: true }];
+  function citasOf(f) { const all = citas.slice().sort((a, b) => (a.fecha + (a.inicio || '00:00') < b.fecha + (b.inicio || '00:00') ? -1 : 1)); return { hoy: all.filter((c) => c.fecha === f), proximas: f === today ? all.filter((c) => c.fecha > f).slice(0, 6) : [] }; }
   function todayResp(fecha) {
     const hs = habits();
     const act = hs.filter((h) => h.freq === 'Diario' && h.activo);
@@ -129,6 +134,7 @@ window.DemoAPI = (function () {
       nombre: 'Laura', frase: { text: 'No subes al nivel de tus metas, caes al nivel de tus sistemas.', autor: 'James Clear · Hábitos atómicos' },
       curso, despertar: '07:04', wakeTarget: '07:00', nota: '', sinGastar: '',
       agenda: [{ inicio: '08:00', fin: '10:00', actividad: 'Clase', tipo: 'Clase' }, { inicio: '16:00', fin: '18:30', actividad: 'Estudio', tipo: 'Estudio' }, { inicio: '19:30', fin: '20:30', actividad: 'Gym · ' + (rutinaHoy || 'descanso'), tipo: 'Gym' }],
+      citas: citasOf(fecha || today),
       gym: { rutina: rutinaHoy, ejercicios: rutinaHoy ? 5 : 0, semana: 1 + (logged.length ? 1 : 0), meta: 4 },
       money: money(), sonido: true, tareas: soonT(), menuHoy: menuOf(mondayOf(today)).filter((m) => m.dia === ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][new Date().getDay()])
     };
@@ -152,6 +158,8 @@ window.DemoAPI = (function () {
     return new Promise((res) => setTimeout(() => {
       if (action === 'ping') return res(p.pin === '0000' ? { ok: true, nombre: 'Laura' } : { ok: false, badPin: true, error: 'PIN incorrecto (en la demo es 0000)' });
       if (action === 'today') return res(todayResp(p.fecha));
+      if (action === 'addCita') { const ini = p.inicio || ''; let fin = p.fin || ''; if (ini && !fin) { const [h, m] = ini.split(':').map(Number); fin = String(h + 1).padStart(2, '0') + ':' + String(m).padStart(2, '0'); } citas.push({ id: 'c' + (++citaN), mine: true, titulo: p.titulo, lugar: p.lugar || '', notas: '', fecha: p.fecha, inicio: ini, fin: ini ? fin : '', todoDia: !ini }); return res(todayResp(p.vista)); }
+      if (action === 'deleteCita') { const k = citas.findIndex((c) => c.id === p.id); if (k >= 0) citas.splice(k, 1); return res(todayResp(p.vista)); }
       if (action === 'setHabit') { vals[p.i] = p.value; return res(todayResp(p.fecha)); }
       if (action === 'setField') { if (p.field === 'curso') curso = p.value; return res(todayResp(p.fecha)); }
       if (action === 'meta') return res(meta());

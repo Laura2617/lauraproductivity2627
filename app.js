@@ -3,7 +3,7 @@
   'use strict';
   const CFG = window.CONFIG || {};
   const DEMO = !CFG.API_URL;
-  const APP_VERSION = '3.2 · fecha exacta en tareas';
+  const APP_VERSION = '3.3 · citas y eventos';
   const LS = { pin: 'l2627.pin', sound: 'l2627.sound', theme: 'l2627.theme' };
   const $ = (s, el) => (el || document).querySelector(s);
   const view = $('#view'), tabs = $('#tabs'), sheet = $('#sheet'), toastEl = $('#toast'), timerEl = $('#timer'), fab = $('#fab');
@@ -258,18 +258,24 @@
       </section>
       ${isToday && new Date().getDay() === 0 ? `<button type="button" class="banner tap" data-act="gorev"><span style="font-size:22px">🔁</span><span style="flex:1"><b>Hoy toca revisión semanal</b><span class="small muted">10 minutos para cerrar la semana</span></span>${icon('chev', 'chev')}</button>` : ''}
       <section class="group">
-        <div class="section-title"><h2>Agenda</h2>${isToday ? '' : ''}</div>
+        <div class="section-title"><h2>Agenda</h2><button type="button" class="linkbtn" data-act="citanew">${icon('plus')}Cita</button></div>
         <div class="card glist">
           ${(() => {
             const gymPill = `<span class="go-pill">${gymDef.value || gymDef.done ? 'Hecho ✓' : 'Empezar'}</span>`;
             const gymSub = g.rutina ? `${g.ejercicios} ejercicios · ${gymDef.count || g.semana || 0} de ${gymDef.veces || g.meta || 4} esta semana` : '';
-            const rows = agenda.map((a) => a.tipo === 'Gym' && g.rutina
+            const citas = (t.citas && t.citas.hoy) || [];
+            const items = agenda.map((a) => Object.assign({ k: (a.inicio || '').padStart(5, '0') }, a)).concat(citas.map((c, n) => ({ k: c.todoDia ? '00:00' : c.inicio, cita: n, c })))
+              .sort((x, y) => (x.k < y.k ? -1 : x.k > y.k ? 1 : 0));
+            const rows = items.map((a) => a.c
+              ? `<button type="button" class="ag-row tap" data-act="cita" data-n="${a.cita}"><span class="ag-t">${a.c.todoDia ? 'Día' : esc(a.c.inicio)}</span><span class="ag-ln" style="background:${agColor('Cita')}"></span><span class="ag-b"><b>${esc(a.c.titulo)}</b><span class="small muted">${a.c.todoDia ? 'Todo el día' : esc(a.c.inicio) + '–' + esc(a.c.fin)}${a.c.lugar ? ' · ' + esc(a.c.lugar) : ''}</span></span>${icon('chev', 'chev')}</button>`
+              : a.tipo === 'Gym' && g.rutina
               ? `<button type="button" class="ag-row tap" data-act="gogym"><span class="ag-t">${esc(a.inicio)}</span><span class="ag-ln" style="background:${agColor(a.tipo)}"></span><span class="ag-b"><b>${esc(a.actividad)}</b><span class="small muted">${gymSub}</span></span>${gymPill}</button>`
               : `<div class="ag-row"><span class="ag-t">${esc(a.inicio)}</span><span class="ag-ln" style="background:${agColor(a.tipo)}"></span><span class="ag-b"><b>${esc(a.actividad)}</b><span class="small muted">${esc(a.inicio)}–${esc(a.fin)}${a.notas ? ' · ' + esc(a.notas) : ''}</span></span></div>`);
             if (g.rutina && !agenda.some((a) => a.tipo === 'Gym')) rows.unshift(`<button type="button" class="ag-row tap" data-act="gogym"><span class="ag-t">Gym</span><span class="ag-ln" style="background:var(--teal-2)"></span><span class="ag-b"><b>${esc(g.rutina)}</b><span class="small muted">${gymSub}</span></span>${gymPill}</button>`);
             return rows.join('');
           })()}
-          ${!g.rutina && !agenda.length ? '<p class="small muted" style="margin:12px 0">Nada en la agenda. Día libre. ☀️</p>' : ''}
+          ${!g.rutina && !agenda.length && !((t.citas && t.citas.hoy) || []).length ? '<p class="small muted" style="margin:12px 0">Nada en la agenda. Día libre. ☀️</p>' : ''}
+          ${t.citas && t.citas.proximas && t.citas.proximas.length ? `<div class="soon-list"><span class="kicker">Próximamente</span>${t.citas.proximas.map((c, n) => `<button type="button" class="soon-row tap" data-act="citap" data-n="${n}"><span class="sd">${esc(shortDate(c.fecha))}</span><span class="st">${c.todoDia ? '' : esc(c.inicio)}</span><span class="sn">${esc(c.titulo)}</span></button>`).join('')}</div>` : ''}
         </div>
       </section>
       ${tasksCard(t)}`;
@@ -287,7 +293,7 @@
       ${t.frase && t.frase.text ? `<p class="frase">“${esc(t.frase.text)}”${t.frase.autor ? `<span>${esc(t.frase.autor)}</span>` : ''}</p>` : ''}`;
     view.innerHTML = `<div class="cols"><div>${left}</div><div>${right}</div></div>`;
   }
-  function agColor(tipo) { return ({ Clase: '#2343C4', Estudio: '#5856D6', 'Certificación': '#AF52DE', Gym: '#30B0C7', Deporte: '#FF9500', Curso: '#32ADE6', Comida: '#FFCC00', Rutina: '#8E8E93' })[tipo] || '#8E8E93'; }
+  function agColor(tipo) { return ({ Clase: '#2343C4', Estudio: '#5856D6', 'Certificación': '#AF52DE', Gym: '#30B0C7', Deporte: '#FF9500', Curso: '#32ADE6', Comida: '#FFCC00', Rutina: '#8E8E93', Cita: '#FF9500' })[tipo] || '#8E8E93'; }
   function habitRow(h, t, weekly) {
     let sub = '';
     if (h.i === 6) sub = `Objetivo ${esc(t.wakeTarget || '')}${t.despertar ? ' · Polar: ' + esc(t.despertar) : ' · con tu Polar'}`;
@@ -299,6 +305,39 @@
       <span class="txt"><span class="name">${esc(labelOf(h.name))}</span>${sub ? `<span class="sub">${sub}</span>` : ''}</span>
       <button type="button" class="check ${h.value ? 'on' : ''}" data-act="toggle" data-i="${h.i}" aria-pressed="${h.value ? 'true' : 'false'}" aria-label="${h.value ? 'Desmarcar' : 'Marcar'} ${esc(labelOf(h.name))}">${h.value ? icon('check') : ''}</button>
     </div>`;
+  }
+  // Citas sueltas (dentista, reuniones…): van a tu calendario con aviso y salen en la agenda
+  function afterCita(r) { if (r && r.habits) { r._f = r.fecha; cSet('today.' + r.fecha, r); if (r.fecha === S.fecha) { S.today = r; if (S.tab === 'hoy') renderToday(); } } }
+  function openCita() {
+    openForm({ title: 'Nueva cita', kicker: 'AGENDA', focus: 'titulo',
+      fields: [{ key: 'titulo', label: '¿Qué es?', placeholder: 'Dentista, reunión, cena…', max: 120 },
+        { key: 'fecha', label: 'Día', type: 'date', value: S.fecha || todayIso() },
+        { type: 'pair', fields: [{ key: 'inicio', label: 'Empieza', type: 'time', value: '10:00' }, { key: 'fin', label: 'Termina', type: 'time', value: '' }] },
+        { key: 'lugar', label: 'Dónde (opcional)', placeholder: 'Clínica, oficina…', max: 200 },
+        { key: 'aviso', label: 'Aviso en el móvil', type: 'chips', value: '60', options: [{ v: '', l: 'Sin aviso' }, { v: '15', l: '15 min antes' }, { v: '60', l: '1 h antes' }, { v: '1440', l: 'El día antes' }] }],
+      intro: 'Deja «Empieza» vacío si es todo el día. Si no pones hora de fin, dura 1 hora.',
+      submit: 'Guardar cita',
+      onSubmit: async (v) => {
+        if (!String(v.titulo).trim()) throw new Error('Ponle un nombre a la cita');
+        if (!v.fecha) throw new Error('Elige el día');
+        const r = await api('addCita', { titulo: v.titulo.trim(), fecha: v.fecha, inicio: v.inicio, fin: v.fin, lugar: v.lugar, aviso: v.aviso, vista: S.fecha || todayIso() });
+        afterCita(r); toast('Cita guardada ✓ · también en tu calendario');
+      } });
+  }
+  function showCita(c) {
+    if (!c) return;
+    const when = cap(niceDate(c.fecha)) + (c.todoDia ? ' · todo el día' : ' · ' + c.inicio + '–' + c.fin);
+    openForm({ title: c.titulo, kicker: 'CITA', fields: [{ type: 'html', html: `<div class="list">
+        <div class="li">${icon('clock')}<span>${esc(when)}</span></div>
+        ${c.lugar ? `<div class="li"><span style="width:22px;text-align:center">📍</span><span>${esc(c.lugar)}</span></div>` : ''}
+        ${c.notas ? `<div class="li small muted">${esc(c.notas)}</div>` : ''}</div>` }],
+      footer: c.mine ? '' : '<p class="small muted" style="margin:0">Esta cita está en tu calendario: si quieres cambiarla o borrarla, hazlo desde la app Calendario.</p>',
+      actions: c.mine ? [{ id: 'del', label: 'Borrar cita', cls: 'danger' }] : [],
+      onAction: async (id) => {
+        if (id !== 'del' || !confirm('¿Borrar esta cita? También se quita de tu calendario.')) return true;
+        const r = await api('deleteCita', { id: c.id, vista: S.fecha || todayIso() });
+        afterCita(r); toast('Cita borrada');
+      } });
   }
   // Editar un número del día (hoja inferior)
   function openNum(i) {
@@ -370,6 +409,9 @@
     if (act === 'gorev') return go('revision');
     if (act === 'gorec') return go('recetas');
     if (act === 'numedit') return openNum(Number(b.dataset.i));
+    if (act === 'citanew') return openCita();
+    if (act === 'cita') return showCita(S.today.citas.hoy[Number(b.dataset.n)]);
+    if (act === 'citap') return showCita(S.today.citas.proximas[Number(b.dataset.n)]);
     if (act === 'toggle') {
       const h = S.today.habits.find((x) => x.i === Number(b.dataset.i)); if (!h) return;
       h.value = !h.value; h.done = habitDone(h);
@@ -1386,7 +1428,8 @@
   // ─── Formularios y selectores genéricos (hoja inferior) ─────
   function openForm(cfg) {
     S.form = Object.assign({ values: {}, busy: false }, cfg);
-    cfg.fields.forEach((f) => { if (!(f.key in S.form.values)) S.form.values[f.key] = f.value == null ? '' : f.value; });
+    const flat = (fs) => fs.reduce((a, f) => a.concat(f.type === 'pair' ? f.fields : [f]), []);
+    flat(cfg.fields).forEach((f) => { if (f.key && !(f.key in S.form.values)) S.form.values[f.key] = f.value == null ? '' : f.value; });
     sheet.hidden = false; renderForm();
     if (cfg.focus) setTimeout(() => { const i = sheet.querySelector(`[data-fk="${cfg.focus}"]`); if (i) i.focus(); }, 250);
   }
@@ -1398,7 +1441,8 @@
       if (x.type === 'chips') return `<div class="field">${lab}<div class="chips">${x.options.map((o) => { const val = typeof o === 'object' ? o.v : o, l = typeof o === 'object' ? o.l : o; return `<button type="button" class="chip ${String(v[x.key]) === String(val) ? 'on' : ''}" data-fm="chip" data-k="${x.key}" data-v="${esc(val)}">${esc(l)}</button>`; }).join('')}</div></div>`;
       if (x.type === 'textarea') return `<label class="field">${lab}<textarea class="text-in area" rows="${x.rows || 4}" data-fk="${x.key}" placeholder="${esc(x.placeholder || '')}" maxlength="${x.max || 3000}">${esc(v[x.key])}</textarea></label>`;
       if (x.type === 'html') return x.html;
-      return `<label class="field">${lab}<input class="text-in" type="${x.type === 'date' ? 'date' : 'text'}" ${x.type === 'number' ? 'inputmode="decimal"' : ''} data-fk="${x.key}" value="${esc(v[x.key])}" placeholder="${esc(x.placeholder || '')}" maxlength="${x.max || 300}"></label>`;
+      if (x.type === 'pair') return `<div class="row" style="gap:10px;align-items:flex-start">${x.fields.map(field).join('')}</div>`;
+      return `<label class="field">${lab}<input class="text-in" type="${x.type === 'date' ? 'date' : x.type === 'time' ? 'time' : 'text'}" ${x.type === 'number' ? 'inputmode="decimal"' : ''} data-fk="${x.key}" value="${esc(v[x.key])}" placeholder="${esc(x.placeholder || '')}" maxlength="${x.max || 300}"></label>`;
     };
     sheet.innerHTML = `<div class="sheet${enterCls()}" role="dialog" aria-modal="true" aria-label="${esc(f.title)}">
       <div class="grab"></div>

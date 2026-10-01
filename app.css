@@ -671,3 +671,12 @@ details.level2 > .card { margin-top: 8px; }
 .datepick { margin-top: 10px; gap: 10px; }
 .datepick .text-in { flex: 1; min-width: 0; width: auto; height: 42px; }
 .sheet > * { flex-shrink: 0; }
+.ag-row .chev { width: 16px; height: 16px; color: color-mix(in srgb, var(--muted) 55%, transparent); flex-shrink: 0; }
+.soon-list { display: flex; flex-direction: column; padding: 10px 14px 10px 0; gap: 2px; }
+.soon-list .kicker { margin-bottom: 4px; }
+.soon-row { display: grid; grid-template-columns: 62px 46px 1fr; gap: 6px; align-items: baseline; border: none; background: none; padding: 5px 0; font: inherit; color: inherit; text-align: left; width: 100%; }
+.soon-row .sd { font-size: 13px; font-weight: 600; color: var(--blue); }
+.soon-row .st { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.soon-row .sn { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.btn.danger { color: var(--coral); }
+.btn.danger[data-fm] { flex: 1; }

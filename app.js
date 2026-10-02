@@ -3,7 +3,7 @@
   'use strict';
   const CFG = window.CONFIG || {};
   const DEMO = !CFG.API_URL;
-  const APP_VERSION = '3.6 · hábitos automáticos marcados';
+  const APP_VERSION = '3.7 · más resistente a fallos';
   const LS = { pin: 'l2627.pin', sound: 'l2627.sound', theme: 'l2627.theme' };
   const $ = (s, el) => (el || document).querySelector(s);
   const view = $('#view'), tabs = $('#tabs'), sheet = $('#sheet'), toastEl = $('#toast'), timerEl = $('#timer'), fab = $('#fab');
@@ -1082,10 +1082,18 @@
   const SUB_COLORS = ['#2456E6', '#6D4AFF', '#0F766E', '#C2410C', '#BE185D', '#0369A1', '#7C3AED', '#15803D', '#B45309', '#0891B2', '#DB2777', '#4F46E5', '#64748B', '#64748B'];
   const PRIOS = ['Alta', 'Media', 'Baja'];
   const TIPOS = ['Entrega', 'Examen', 'Lectura', 'Ejercicios', 'Estudio', 'Trabajo en grupo', 'Otro'];
+  // Asegura que los datos de Estudios tienen todas sus listas (si el conector está desactualizado, no rompe la app)
+  function normEst(r) {
+    r = r || {};
+    const miss = ['tareas', 'asignaturas', 'certs'].filter((k) => !Array.isArray(r[k]));
+    ['tareas', 'asignaturas', 'certs', 'plan', 'cv'].forEach((k) => { if (!Array.isArray(r[k])) r[k] = []; });
+    r._miss = miss;
+    return r;
+  }
   function subjectList() {
     const e = S.est;
-    const asig = e && e.asignaturas.length ? e.asignaturas.map((a) => a.nombre) : Object.keys(SHORT);
-    const certs = (e && e.certs.length ? e.certs.map((c) => c.codigo || c.nombre) : ['DP-900', 'Claude', 'SAS']).map((c) => 'Cert. ' + c);
+    const asig = e && e.asignaturas && e.asignaturas.length ? e.asignaturas.map((a) => a.nombre) : Object.keys(SHORT);
+    const certs = (e && e.certs && e.certs.length ? e.certs.map((c) => c.codigo || c.nombre) : ['DP-900', 'Claude', 'SAS']).map((c) => 'Cert. ' + c);
     return asig.concat(certs, ['Prácticas y CV', 'Otro']);
   }
   function subColor(n) {
@@ -1127,9 +1135,9 @@
   }
 
   async function loadEstudios(silent) {
-    if (!S.est) { const c = cGet('est'); if (c) { S.est = c; if (S.tab === 'estudios') renderEstudios(); } }
+    if (!S.est) { const c = cGet('est'); if (c) { S.est = normEst(c); if (S.tab === 'estudios') renderEstudios(); } }
     if (!silent || !S.est) skeleton();
-    try { S.est = await api('estudios'); cSet('est', S.est); if (S.tab === 'estudios') renderEstudios(); }
+    try { S.est = normEst(await api('estudios')); cSet('est', S.est); if (S.tab === 'estudios') renderEstudios(); }
     catch (e) { if (S.tab === 'estudios' && S.pin) view.innerHTML = errBox(e.message, 'reload-est'); }
   }
   function renderEstudios() {
@@ -1147,6 +1155,7 @@
     const done = e.tareas.filter((t) => t.hecha && match(t)).sort((a, b) => byDue(b, a)).slice(0, 30);
     const left = `
       ${DEMO ? '<div class="demo-banner">Modo demo: las tareas no se guardan.</div>' : ''}
+      ${e._miss && e._miss.length ? `<div class="banner warnb">${icon('warn')}<span style="flex:1"><b>Tu conector no ha enviado: ${esc(e._miss.join(', '))}</b><span class="small">En Apps Script deja un solo archivo de código, pega el último Code.gs y despliega una Nueva versión.</span></span></div>` : ''}
       <header class="head"><div><div class="muted small">Curso 2026/27</div><h1>Estudios</h1></div>
         <button type="button" class="pill addpill" data-e="tnew">${icon('plus')}Tarea</button></header>
       <div class="stats">
@@ -1227,7 +1236,7 @@
     S.task = t ? { row: t.row, tarea: t.tarea, asignatura: t.asignatura, tipo: t.tipo || 'Entrega', fecha: t.fecha, prioridad: t.prioridad || 'Media', notas: t.notas, hecha: t.hecha, busy: false }
       : { row: null, tarea: '', asignatura: fs, tipo: 'Entrega', fecha: addDays(todayIso(), 7), prioridad: 'Media', notas: '', busy: false };
     sheet.hidden = false; renderTask();
-    if (!S.est) api('estudios').then((r) => { S.est = r; if (S.task) renderTask(); }).catch(() => {});
+    if (!S.est) api('estudios').then((r) => { S.est = normEst(r); if (S.task) renderTask(); }).catch(() => {});
     if (!t) setTimeout(() => { const i = sheet.querySelector('[data-tf="tarea"]'); if (i) i.focus(); }, 250);
   }
   function findTask(row) {
@@ -1359,7 +1368,7 @@
         if (k in fields && fields[k] !== '' && isNaN(Number(String(fields[k]).replace(',', '.')))) return toast('Revisa el número de "' + k + '"', true);
       }
       s.busy = true; renderStudy();
-      try { S.est = await api('updateStudy', { kind: s.kind, row: s.row, fields }); closeAdd(); toast('Guardado ✓'); if (S.tab === 'estudios') renderEstudios(); }
+      try { S.est = normEst(await api('updateStudy', { kind: s.kind, row: s.row, fields })); closeAdd(); toast('Guardado ✓'); if (S.tab === 'estudios') renderEstudios(); }
       catch (err) { s.busy = false; renderStudy(); toast(err.message, true); }
     }
   });
@@ -1384,7 +1393,7 @@
       S.modOpen = Object.assign({}, S.modOpen, { [c.row]: true }); renderEstudios();
       const all = c && c.modulos.every((x) => x.hecho);
       if (m.hecho) { if (all) { confetti(); toast('¡Curso terminado! Ahora, a por el examen 💪'); } else toast('Módulo ' + m.orden + ' hecho ✓'); }
-      try { S.est = await api('updateModule', { row: m.row, fields: { hecho: m.hecho } }); if (S.tab === 'estudios') renderEstudios(); }
+      try { S.est = normEst(await api('updateModule', { row: m.row, fields: { hecho: m.hecho } })); if (S.tab === 'estudios') renderEstudios(); }
       catch (err) { toast(err.message, true); loadEstudios(true); }
       return;
     }
@@ -1401,12 +1410,12 @@
         actions: m ? [{ id: 'del', label: 'Borrar módulo', cls: 'danger' }] : [],
         onSubmit: async (v) => {
           if (!v.nombre.trim()) throw new Error('Escribe el nombre del módulo');
-          S.est = m ? await api('updateModule', { row: m.row, fields: v }) : await api('addModule', Object.assign({ cert: code }, v));
+          S.est = normEst(m ? await api('updateModule', { row: m.row, fields: v }) : await api('addModule', Object.assign({ cert: code }, v)));
           toast(m ? 'Guardado ✓' : 'Módulo añadido ✓'); if (S.tab === 'estudios') renderEstudios();
         },
         onAction: async (id) => {
           if (id !== 'del' || !confirm('¿Borrar este módulo?')) return true;
-          S.est = await api('deleteModule', { row: m.row }); toast('Módulo borrado'); if (S.tab === 'estudios') renderEstudios();
+          S.est = normEst(await api('deleteModule', { row: m.row })); toast('Módulo borrado'); if (S.tab === 'estudios') renderEstudios();
         }
       });
     }
@@ -1416,7 +1425,7 @@
       renderEstudios();
       clearTimeout(certTimers[c.row]);
       certTimers[c.row] = setTimeout(async () => {
-        try { S.est = await api('updateStudy', { kind: 'cert', row: c.row, fields: { hechos: c.hechos } }); if (S.tab === 'estudios') renderEstudios(); if (c.total && c.hechos >= c.total) toast('¡Todos los módulos hechos! Ahora, a por el examen 💪'); }
+        try { S.est = normEst(await api('updateStudy', { kind: 'cert', row: c.row, fields: { hechos: c.hechos } })); if (S.tab === 'estudios') renderEstudios(); if (c.total && c.hechos >= c.total) toast('¡Todos los módulos hechos! Ahora, a por el examen 💪'); }
         catch (err) { toast(err.message, true); loadEstudios(true); }
       }, 700);
       return;
@@ -1426,7 +1435,7 @@
       const nuevo = it.estado === '✅ Hecho' ? 'Pendiente' : '✅ Hecho';
       it.estado = nuevo; S.estOpen = Object.assign({}, S.estOpen, { [kind]: true }); renderEstudios();
       if (nuevo === '✅ Hecho') toast('¡Un paso más hacia junio! ✓');
-      try { S.est = await api('updateStudy', { kind, row: it.row, fields: { estado: nuevo } }); if (S.tab === 'estudios') renderEstudios(); }
+      try { S.est = normEst(await api('updateStudy', { kind, row: it.row, fields: { estado: nuevo } })); if (S.tab === 'estudios') renderEstudios(); }
       catch (err) { toast(err.message, true); loadEstudios(true); }
     }
   });
@@ -2091,6 +2100,19 @@
       loadToday(true);
     }
   });
+  // Si una pantalla falla al pintarse, se enseña el error en esa pantalla (y no se queda la anterior ni se cuelga)
+  function guard(fn, act) {
+    return function () {
+      try { return fn.apply(this, arguments); }
+      catch (e) {
+        const where = String(e.stack || '').split('\n').find((l) => /app\.js/.test(l)) || '';
+        view.innerHTML = errBox('App: ' + e.message + (where ? ' · ' + where.replace(/^.*app\.js[^:]*/, 'línea').trim() : ''), act);
+      }
+    };
+  }
+  renderEstudios = guard(renderEstudios, 'reload-est'); renderDinero = guard(renderDinero, 'reload-din'); renderProgreso = guard(renderProgreso, 'reload-prog');
+  renderGym = guard(renderGym, 'reload-gym'); renderCocina = guard(renderCocina, 'reload-coc'); renderBiblioteca = guard(renderBiblioteca, 'reload-bib');
+  renderDeseos = guard(renderDeseos, 'reload-des'); renderMas = guard(renderMas, 'reload-mas');
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
   start();
 })();
